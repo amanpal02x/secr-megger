@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 const connectDB = require('./config/db');
 const Entry = require('./models/Entry');
 const User = require('./models/User');
@@ -257,7 +260,109 @@ app.get('/api/stats', protect, async (req, res) => {
   }
 });
 
+// --- SMS UTILITY --- //
+const sendSMS = async (phone, message, templateId) => {
+  if (process.env.SMS_ENABLED !== 'true') {
+    console.log('SMS is disabled. Message:', message);
+    // Write to file for local testing in the server directory
+    try {
+      const logPath = path.join(__dirname, 'last_otp.txt');
+      const logEntry = `[${new Date().toLocaleString()}] To: ${phone} | Template: ${templateId}\nMessage: ${message}\n\n`;
+      fs.appendFileSync(logPath, logEntry);
+      console.log(`OTP written to ${logPath}`);
+    } catch (err) {
+      console.error('Failed to write local OTP log:', err);
+    }
+    return true;
+  }
+  try {
+    const params = new URLSearchParams({
+      username: process.env.SMS_USERNAME,
+      password: process.env.SMS_API_PASSWORD,
+      sender: process.env.SMS_SENDER_ID,
+      sendto: phone,
+      message: message,
+      templateid: templateId,
+      unicode: process.env.SMS_UNICODE || '1',
+      priority: process.env.SMS_PRIORITY || '11'
+    });
+    
+    const response = await axios.get(`${process.env.SMS_API_URL}?${params.toString()}`);
+    console.log('SMS Gateway Response:', response.data);
+    return true;
+  } catch (error) {
+    console.error('SMS Send Error:', error.message);
+    return false;
+  }
+};
+
 // --- AUTH ROUTES --- //
+
+// Send OTP
+app.post('/api/auth/send-otp', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    console.log(`[AUTH] OTP requested for: ${phoneNumber}`);
+    if (!phoneNumber) return res.status(400).json({ message: 'Phone number required' });
+
+    const user = await User.findOne({ phoneNumber });
+    if (!user) return res.status(404).json({ message: 'Personnel not registered with this number' });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+    user.otp = otp;
+    user.otpExpires = expires;
+    await user.save();
+
+    const message = `Your login OTP is ${otp}. Do Not Share With Anyone. - STSECR`;
+    const templateId = '1707177521089604946';
+
+    const sent = await sendSMS(phoneNumber, message, templateId);
+    if (sent) {
+      res.json({ message: 'OTP sent successfully' });
+    } else {
+      res.status(500).json({ message: 'Failed to send SMS gateway request' });
+    }
+  } catch (error) {
+    console.error('CRITICAL ERROR in /api/auth/send-otp:', error);
+    res.status(500).json({ message: 'Internal Server Error: ' + error.message });
+  }
+});
+
+// Verify OTP & Login
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { phoneNumber, otp } = req.body;
+    if (!phoneNumber || !otp) return res.status(400).json({ message: 'Phone and OTP required' });
+
+    const user = await User.findOne({ phoneNumber });
+    if (!user || user.otp !== otp || user.otpExpires < new Date()) {
+      return res.status(401).json({ message: 'Invalid or expired OTP' });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Account is inactive' });
+    }
+
+    // Clear OTP after success
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
 
 // Login
 app.post('/api/auth/login', async (req, res) => {

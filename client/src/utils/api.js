@@ -18,6 +18,9 @@ API.interceptors.request.use((config) => {
 export const getDivisions = () => API.get('/divisions').then(r => r.data);
 export const getMajorSections = (divId) => API.get('/major-sections', { params: { divisionId: divId } }).then(r => r.data);
 export const getSections = (msId) => API.get('/sections', { params: { majorSectionId: msId } }).then(r => r.data);
+export const login = (data) => API.post('/auth/login', data).then(r => r.data);
+export const sendOtp = (phoneNumber) => API.post('/auth/send-otp', { phoneNumber }).then(r => r.data);
+export const verifyOtp = (phoneNumber, otp) => API.post('/auth/verify-otp', { phoneNumber, otp }).then(r => r.data);
 export const getEntries = (params) => API.get('/entries', { params }).then(r => r.data);
 export const createEntry = (data) => API.post('/entries', data).then(r => r.data);
 export const createEntriesBulk = (data) => API.post('/entries/bulk', data).then(r => r.data);

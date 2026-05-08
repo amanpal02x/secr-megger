@@ -69,23 +69,45 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signup = async (email, password, phoneNumber) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, phoneNumber })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setDbUser(data);
-      return { success: true };
-    } else {
-      return { success: false, message: data.message || 'Signup failed' };
+  const sendOtp = async (phoneNumber) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message };
+    } catch (error) {
+      console.error("AuthContext: sendOtp error:", error);
+      return { success: false, message: 'Connection failed' };
     }
+  };
+
+  const loginWithOtp = async (phoneNumber, otp) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, otp })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setDbUser(data);
+        return { success: true, user: data };
+      } else {
+        return { success: false, message: data.message || 'OTP verification failed' };
+      }
+    } catch (error) {
+      console.error("AuthContext: loginWithOtp error:", error);
+      return { success: false, message: 'Connection failed' };
+    }
+  };
+
+  const signup = async (email, password, phoneNumber) => {
+    // ... signup logic ...
   };
 
   const logout = () => {
@@ -99,6 +121,8 @@ export function AuthProvider({ children }) {
     token,
     loading,
     login,
+    sendOtp,
+    loginWithOtp,
     signup,
     logout
   };
