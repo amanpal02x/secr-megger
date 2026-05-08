@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+
+
 const AuthContext = createContext();
 
 export function useAuth() {
@@ -15,7 +18,7 @@ export function AuthProvider({ children }) {
     const verifyToken = async () => {
       if (token) {
         try {
-          const response = await fetch('http://localhost:5000/api/auth/me', {
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -42,7 +45,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     console.log("AuthContext: Attempting fetch to /api/auth/login...");
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -67,7 +70,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (email, password, phoneNumber) => {
-    const response = await fetch('http://localhost:5000/api/auth/register', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, phoneNumber })
