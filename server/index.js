@@ -276,19 +276,21 @@ const sendSMS = async (phone, message, templateId) => {
     return true;
   }
   try {
-    const params = new URLSearchParams({
+    const params = {
       username: process.env.SMS_USERNAME,
-      password: process.env.SMS_API_PASSWORD,
+      api_password: process.env.SMS_API_PASSWORD,
       sender: process.env.SMS_SENDER_ID,
-      sendto: phone,
+      to: phone,
       message: message,
-      templateid: templateId,
       unicode: process.env.SMS_UNICODE || '1',
-      priority: process.env.SMS_PRIORITY || '11'
-    });
-    
-    const response = await axios.get(`${process.env.SMS_API_URL}?${params.toString()}`);
-    console.log('SMS Gateway Response:', response.data);
+      priority: process.env.SMS_PRIORITY || '11',
+      e_id: process.env.SMS_ENTITY_ID,
+      t_id: templateId
+    };
+
+    const url = axios.getUri({ url: process.env.SMS_API_URL, params });
+
+    const response = await axios.get(process.env.SMS_API_URL, { params });
     return true;
   } catch (error) {
     console.error('SMS Send Error:', error.message);
@@ -302,7 +304,6 @@ const sendSMS = async (phone, message, templateId) => {
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
-    console.log(`[AUTH] OTP requested for: ${phoneNumber}`);
     if (!phoneNumber) return res.status(400).json({ message: 'Phone number required' });
 
     const user = await User.findOne({ phoneNumber });
