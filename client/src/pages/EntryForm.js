@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { getDivisions, getMajorSections, getSections, createEntry } from '../utils/api';
+import { getDivisions, getMajorSections, getSections, createEntry, createEntriesBulk, clearAllEntries, createLocationsBulk } from '../utils/api';
 import { FormLabel, Input, Select, Textarea, FieldError } from '../components/FormField';
+import * as XLSX from 'xlsx';
+import { useAuth } from '../contexts/AuthContext';
 
 const QUAD_NAMES = [
   'Q-1/1', 'Q-1/2', 'Q-2/1', 'Q-2/2', 'Q-3/1', 'Q-3/2',
@@ -33,9 +35,9 @@ function SectionPanel({ number, title, icon, children }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-3.5 bg-navy-900 border-b border-navy-700">
-        <span className="font-mono text-[11px] text-gold-400 bg-gold-400/10 border border-gold-400/25 rounded px-2 py-0.5 tracking-wide">{number}</span>
+        <span className="font-mono text-xs text-gold-400 bg-gold-400/10 border border-gold-400/25 rounded px-2 py-0.5 tracking-wide">{number}</span>
         <span className="text-slate-400">{icon}</span>
-        <h2 className="text-sm font-medium text-white">{title}</h2>
+        <h2 className="text-base font-semibold text-white">{title}</h2>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -50,8 +52,16 @@ export default function EntryForm({ setActivePage, showToast }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [savedBanner, setSavedBanner] = useState(false);
+  const [uploadMode, setUploadMode] = useState(false);
+  const [uploadType, setUploadType] = useState('records'); // 'records' or 'master'
+  const [bulkFile, setBulkFile] = useState(null);
+  const { dbUser } = useAuth();
 
-  useEffect(() => { getDivisions().then(setDivisions); }, []);
+  const refreshDropdowns = () => {
+    getDivisions().then(setDivisions);
+  };
+
+  useEffect(() => { refreshDropdowns(); }, []);
 
   const set = (name, val) => {
     setForm(f => ({ ...f, [name]: val }));
@@ -107,6 +117,54 @@ export default function EntryForm({ setActivePage, showToast }) {
     finally { setSubmitting(false); }
   };
 
+  const handleBulkUpload = async () => {
+    if (!bulkFile) { showToast('Please select a file first.', 'error'); return; }
+    setSubmitting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Format data to match schema
+        const formattedData = jsonData.map(row => ({
+          ...EMPTY,
+          divisionName: row.DIVISION || '',
+          divisionId: row.DIVISION || '',
+          majorSectionName: row['MAJOR SECTION'] || '',
+          majorSectionId: row['MAJOR SECTION'] || '',
+          sectionName: row.SECTION || '',
+          sectionId: row.SECTION || '',
+          technicianName: row.TECHNICIAN || 'Bulk Upload',
+          testDate: row.DATE || new Date().toISOString().split('T')[0],
+          quadReadings: QUAD_NAMES.map(name => ({ ...EMPTY_QUAD, quadNo: name }))
+        }));
+        await createEntriesBulk(formattedData);
+        showToast(`${formattedData.length} entries uploaded!`, 'success');
+        setBulkFile(null);
+        setUploadMode(false);
+      };
+      reader.readAsArrayBuffer(bulkFile);
+    } catch (err) {
+      showToast('Upload failed. Check file format.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm('WARNING: This will delete ALL entries in the database. Continue?')) return;
+    try {
+      await clearAllEntries();
+      showToast('Database cleared successfully.', 'success');
+    } catch {
+      showToast('Failed to clear database.', 'error');
+    }
+  };
+
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
       {/* Page Header */}
@@ -118,13 +176,17 @@ export default function EntryForm({ setActivePage, showToast }) {
           <h1 className="text-2xl font-semibold text-navy-900 tracking-tight">6 Quad Cable Meggering Register</h1>
           <p className="text-sm text-slate-500 mt-0.5">Digitalized traditional register format for cable maintenance</p>
         </div>
-        <button type="button" onClick={() => setActivePage('log')}
-          className="flex items-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-4 py-2.5 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-          View Data Log
-        </button>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => setActivePage('log')}
+            className="flex items-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-4 py-2.5 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            View Data Log
+          </button>
+        </div>
       </div>
+
+      {/* Success banner */}
 
       {/* Success banner */}
       {savedBanner && (
@@ -134,7 +196,37 @@ export default function EntryForm({ setActivePage, showToast }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col overflow-hidden">
+      {uploadMode ? (
+        <div className="p-8 max-w-xl mx-auto w-full">
+          <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-10 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-gold-50 text-gold-600 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            </div>
+            <h3 className="text-lg font-bold text-navy-900">Bulk Upload Records</h3>
+            <p className="text-sm text-slate-500 mt-2 mb-6">Upload an Excel file containing division, section, and personnel information.</p>
+            
+            <input 
+              type="file" 
+              accept=".xlsx, .xls" 
+              onChange={e => setBulkFile(e.target.files[0])}
+              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-navy-50 file:text-navy-700 hover:file:bg-navy-100 mb-6"
+            />
+
+            <button 
+              onClick={handleBulkUpload}
+              disabled={submitting || !bulkFile}
+              className="w-full bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-navy-900 font-bold py-3 rounded-xl transition-all"
+            >
+              {submitting ? 'Processing...' : 'Upload & Process Data'}
+            </button>
+            
+            <div className="mt-6 text-[10px] text-slate-400 uppercase font-bold tracking-widest">
+              Required Columns: divisionName, sectionName, technicianName, testDate
+            </div>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col overflow-hidden">
         <div className="p-8 space-y-6 flex-1 max-w-[1500px] mx-auto w-full overflow-y-auto scrollbar-thin">
 
           {/* Section 01 — Location & Header */}
@@ -179,63 +271,63 @@ export default function EntryForm({ setActivePage, showToast }) {
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/></svg>}
           >
             <div className="overflow-x-auto border border-slate-200 rounded-lg scrollbar-thin pb-2">
-              <table className="w-full text-xs min-w-[1300px]">
+              <table className="w-full text-sm min-w-[1300px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-2 text-left font-semibold text-slate-500 uppercase sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Quad No.</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase whitespace-nowrap">Loop Res. (Ω)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-navy-50/50 whitespace-nowrap">L1/E (MΩ)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-navy-50/50 whitespace-nowrap">L2/E (MΩ)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-navy-50/50 whitespace-nowrap">L1/L2 (MΩ)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase whitespace-nowrap">DB Loss (db)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">Core (mm)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">NEXT (db)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">FEXT (db)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">Noise (V)</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">Armor</th>
-                    <th className="px-2 py-2 text-center font-semibold text-slate-500 uppercase bg-amber-50/40 whitespace-nowrap">Remark</th>
+                    <th className="px-2 py-2.5 text-left font-bold text-slate-600 uppercase sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Quad No.</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase whitespace-nowrap">Loop Res. (Ω)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-navy-50/50 whitespace-nowrap">L1/E (MΩ)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-navy-50/50 whitespace-nowrap">L2/E (MΩ)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-navy-50/50 whitespace-nowrap">L1/L2 (MΩ)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase whitespace-nowrap">DB Loss (db)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Core (mm)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">NEXT (db)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">FEXT (db)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Noise (V)</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Armor</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Remark</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {form.quadReadings.map((q, idx) => (
                     <tr key={q.quadNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-2 py-1 font-mono font-semibold text-navy-700 bg-slate-50/50 sticky left-0 z-10 border-r border-slate-200">{q.quadNo}</td>
+                      <td className="px-2 py-1.5 font-mono font-bold text-navy-800 bg-slate-50/50 sticky left-0 z-10 border-r border-slate-200">{q.quadNo}</td>
                       <td className="px-1 py-1">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-xs px-1 py-1" placeholder="—" value={q.loopResistance} onChange={e => updateQuad(idx, 'loopResistance', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm px-1 py-1.5" placeholder="—" value={q.loopResistance} onChange={e => updateQuad(idx, 'loopResistance', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-xs font-medium text-navy-800 px-1 py-1" placeholder=">20M" value={q.insulationL1E} onChange={e => updateQuad(idx, 'insulationL1E', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL1E} onChange={e => updateQuad(idx, 'insulationL1E', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-xs font-medium text-navy-800 px-1 py-1" placeholder=">20M" value={q.insulationL2E} onChange={e => updateQuad(idx, 'insulationL2E', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL2E} onChange={e => updateQuad(idx, 'insulationL2E', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-xs font-medium text-navy-800 px-1 py-1" placeholder=">20M" value={q.insulationL1L2} onChange={e => updateQuad(idx, 'insulationL1L2', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL1L2} onChange={e => updateQuad(idx, 'insulationL1L2', e.target.value)} />
                       </td>
                       <td className="px-1 py-1">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-xs px-1 py-1" placeholder="-4.5" value={q.dbLoss} onChange={e => updateQuad(idx, 'dbLoss', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm px-1 py-1.5" placeholder="-4.5" value={q.dbLoss} onChange={e => updateQuad(idx, 'dbLoss', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[70px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-xs px-1 py-1" placeholder="0.9" value={q.coreSize} onChange={e => updateQuad(idx, 'coreSize', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="0.9" value={q.coreSize} onChange={e => updateQuad(idx, 'coreSize', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[70px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-xs px-1 py-1" placeholder="e.g. 61" value={q.next} onChange={e => updateQuad(idx, 'next', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 61" value={q.next} onChange={e => updateQuad(idx, 'next', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[70px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-xs px-1 py-1" placeholder="e.g. 61" value={q.fext} onChange={e => updateQuad(idx, 'fext', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 61" value={q.fext} onChange={e => updateQuad(idx, 'fext', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[80px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-xs px-1 py-1" placeholder="e.g. 12mv" value={q.noiseLevel} onChange={e => updateQuad(idx, 'noiseLevel', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 12mv" value={q.noiseLevel} onChange={e => updateQuad(idx, 'noiseLevel', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <select className="w-[90px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-xs px-1 py-1" value={q.armerContinuity} onChange={e => updateQuad(idx, 'armerContinuity', e.target.value)}>
+                        <select className="w-[100px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-sm px-1 py-1.5" value={q.armerContinuity} onChange={e => updateQuad(idx, 'armerContinuity', e.target.value)}>
                           <option>OK</option>
                           <option>Defective</option>
                           <option>Disconn.</option>
                         </select>
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[120px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-xs px-1 py-1" placeholder="Remarks..." value={q.remark} onChange={e => updateQuad(idx, 'remark', e.target.value)} />
+                        <input type="text" className="w-[140px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="Remarks..." value={q.remark} onChange={e => updateQuad(idx, 'remark', e.target.value)} />
                       </td>
                     </tr>
                   ))}
@@ -282,6 +374,7 @@ export default function EntryForm({ setActivePage, showToast }) {
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 }

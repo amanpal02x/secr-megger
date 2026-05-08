@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Dashboard from './Dashboard';
 import DataLog from './DataLog';
+import * as XLSX from 'xlsx';
+import { createLocationsBulk, clearAllEntries } from '../utils/api';
+
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
 export default function AdminDashboard({ setActivePage, showToast }) {
   const { dbUser, token, logout } = useAuth();
@@ -14,6 +18,8 @@ export default function AdminDashboard({ setActivePage, showToast }) {
   const [role, setRole] = useState('user');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [bulkFile, setBulkFile] = useState(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'users') {
@@ -23,7 +29,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch(`${API_BASE_URL}/api/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -49,7 +55,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
     try {
       const formattedPhone = phone && !phone.startsWith('+') ? `+91${phone}` : phone;
       
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,13 +88,66 @@ export default function AdminDashboard({ setActivePage, showToast }) {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to remove this user?')) return;
     try {
-      await fetch(`http://localhost:5000/api/users/${id}`, {
+      await fetch(`${API_BASE_URL}/api/users/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       fetchUsers();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleBulkMasterUpload = async () => {
+    if (!bulkFile) { showToast('Please select a file first.', 'error'); return; }
+    setProcessing(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        
+        // Fill-down logic for merged cells
+        let lastDiv = "";
+        let lastMS = "";
+        
+        const cleanedData = jsonData.map(row => {
+          const div = (row.DIVISION || row.division || lastDiv).toString().trim();
+          const ms = (row['MAJOR SECTION'] || row.majorSection || lastMS).toString().trim();
+          const sec = (row.SECTION || row.section || "").toString().trim();
+          
+          if (div) lastDiv = div;
+          if (ms) lastMS = ms;
+          
+          return {
+            DIVISION: div,
+            'MAJOR SECTION': ms,
+            SECTION: sec
+          };
+        }).filter(row => row.DIVISION && row['MAJOR SECTION'] && row.SECTION);
+
+        await createLocationsBulk(cleanedData);
+        showToast(`Success! ${cleanedData.length} sections imported.`, 'success');
+        setBulkFile(null);
+      };
+      reader.readAsArrayBuffer(bulkFile);
+    } catch (err) {
+      showToast('Upload failed. Check file format.', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm('WARNING: This will delete ALL maintenance entries in the database. Continue?')) return;
+    try {
+      await clearAllEntries();
+      showToast('Database records cleared successfully.', 'success');
+    } catch {
+      showToast('Failed to clear database.', 'error');
     }
   };
 
@@ -114,6 +173,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
             { id: 'overview', label: 'Overview' },
             { id: 'log',      label: 'Master Log' },
             { id: 'users',    label: 'User Auth' },
+            { id: 'system',   label: 'System' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -213,6 +273,35 @@ export default function AdminDashboard({ setActivePage, showToast }) {
                     </tbody>
                   </table>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'system' && (
+          <div className="p-8 max-w-4xl mx-auto w-full space-y-8">
+            {/* Master Data Upload */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <h3 className="text-sm font-bold text-navy-900 uppercase tracking-wide">Update Dropdown Options</h3>
+              </div>
+              <div className="p-8 flex items-center gap-8">
+                <div className="flex-1">
+                  <p className="text-sm text-slate-500 mb-4">Upload an Excel file to redefine all Division, Major Section, and Section options.</p>
+                  <input 
+                    type="file" 
+                    accept=".xlsx, .xls" 
+                    onChange={e => setBulkFile(e.target.files[0])}
+                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-navy-50 file:text-navy-700 hover:file:bg-navy-100"
+                  />
+                </div>
+                <button 
+                  onClick={handleBulkMasterUpload}
+                  disabled={processing || !bulkFile}
+                  className="bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-navy-900 font-bold px-6 py-3 rounded-xl transition-all"
+                >
+                  {processing ? 'Processing...' : 'Upload Options'}
+                </button>
               </div>
             </div>
           </div>

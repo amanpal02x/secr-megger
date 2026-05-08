@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const connectDB = require('./config/db');
 const Entry = require('./models/Entry');
 const User = require('./models/User');
+const Location = require('./models/Location');
 const { protect, adminOnly } = require('./middleware/auth');
 
 const app = express();
@@ -16,7 +17,8 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -25,79 +27,58 @@ const generateToken = (id) => {
   });
 };
 
-// Static data for dropdowns
-const divisions = [
-  { id: 'DIV-BPL', name: 'Bhopal Division' },
-  { id: 'DIV-JBP', name: 'Jabalpur Division' },
-  { id: 'DIV-NGP', name: 'Nagpur Division' },
-  { id: 'DIV-BIA', name: 'Bilaspur Division' },
-  { id: 'DIV-RIG', name: 'Raipur Division' },
-];
-
-const majorSections = {
-  'DIV-BPL': [
-    { id: 'MS-BPL-01', name: 'BPL-ET Main Line' },
-    { id: 'MS-BPL-02', name: 'BPL-JHS Chord' },
-    { id: 'MS-BPL-03', name: 'BPL-HBJ Suburban' },
-  ],
-  'DIV-JBP': [
-    { id: 'MS-JBP-01', name: 'JBP-MKP Main Line' },
-    { id: 'MS-JBP-02', name: 'JBP-KTE Section' },
-    { id: 'MS-JBP-03', name: 'JBP-STC Branch' },
-  ],
-  'DIV-NGP': [
-    { id: 'MS-NGP-01', name: 'NGP-WR Main Line' },
-    { id: 'MS-NGP-02', name: 'NGP-CSTM Section' },
-    { id: 'MS-NGP-03', name: 'NGP-BPQ Branch' },
-  ],
-  'DIV-BIA': [
-    { id: 'MS-BIA-01', name: 'BIA-R Main Line' },
-    { id: 'MS-BIA-02', name: 'BIA-C Section' },
-    { id: 'MS-BIA-03', name: 'BIA-USL Branch' },
-  ],
-  'DIV-RIG': [
-    { id: 'MS-RIG-01', name: 'RIG-DRZ Main Line' },
-    { id: 'MS-RIG-02', name: 'RIG-BSP Section' },
-    { id: 'MS-RIG-03', name: 'RIG-SDL Branch' },
-  ],
-};
-
-const sections = {
-  'MS-BPL-01': ['BPL-HBJ', 'HBJ-MIS', 'MIS-BHS', 'BHS-ET'],
-  'MS-BPL-02': ['BPL-VDI', 'VDI-SHD', 'SHD-JHS'],
-  'MS-BPL-03': ['BPL-SVP', 'SVP-HBJ'],
-  'MS-JBP-01': ['JBP-SGO', 'SGO-KHD', 'KHD-MKP'],
-  'MS-JBP-02': ['JBP-SNI', 'SNI-KTE'],
-  'MS-JBP-03': ['JBP-STN', 'STN-STC'],
-  'MS-NGP-01': ['NGP-SEG', 'SEG-WR'],
-  'MS-NGP-02': ['NGP-ABR', 'ABR-CSTM'],
-  'MS-NGP-03': ['NGP-BPQ'],
-  'MS-BIA-01': ['BIA-RPHL', 'RPHL-R'],
-  'MS-BIA-02': ['BIA-KRL', 'KRL-C'],
-  'MS-BIA-03': ['BIA-USL'],
-  'MS-RIG-01': ['RIG-DRZ'],
-  'MS-RIG-02': ['RIG-BSP'],
-  'MS-RIG-03': ['RIG-SDL'],
-};
+// Locations are now fetched from the database. 
+// Use /api/locations/bulk to populate them.
 
 // GET dropdown data
-app.get('/api/divisions', (req, res) => {
-  res.json(divisions);
+app.get('/api/divisions', async (req, res) => {
+  try {
+    const data = await Location.distinct('division');
+    res.json(data.map(d => ({ id: d, name: d })));
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching divisions' });
+  }
 });
 
-app.get('/api/major-sections/:divisionId', (req, res) => {
-  const { divisionId } = req.params;
-  const data = majorSections[divisionId] || [];
-  res.json(data);
+app.get('/api/major-sections', async (req, res) => {
+  try {
+    const { divisionId } = req.query;
+    const data = await Location.distinct('majorSection', { division: divisionId });
+    res.json(data.map(m => ({ id: m, name: m })));
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching major sections' });
+  }
 });
 
-app.get('/api/sections/:majorSectionId', (req, res) => {
-  const { majorSectionId } = req.params;
-  const data = (sections[majorSectionId] || []).map((s, i) => ({
-    id: `${majorSectionId}-S${i + 1}`,
-    name: s,
-  }));
-  res.json(data);
+app.get('/api/sections', async (req, res) => {
+  try {
+    const { majorSectionId } = req.query;
+    const data = await Location.distinct('section', { majorSection: majorSectionId });
+    res.json(data.map(s => ({ id: s, name: s })));
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching sections' });
+  }
+});
+
+// POST bulk locations
+app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
+  try {
+    const locations = req.body;
+    if (!Array.isArray(locations)) return res.status(400).json({ error: 'Array expected' });
+    
+    // Optional: Clear existing locations before bulk upload
+    await Location.deleteMany({});
+    
+    await Location.insertMany(locations.map(l => ({
+      division: l.DIVISION || l.division,
+      majorSection: l['MAJOR SECTION'] || l.majorSection,
+      section: l.SECTION || l.section
+    })));
+    
+    res.status(201).json({ message: 'Master data updated successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error uploading locations' });
+  }
 });
 
 // GET all entries
@@ -220,6 +201,39 @@ app.delete('/api/entries/:id', protect, async (req, res) => {
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     res.json({ message: 'Entry deleted' });
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// DELETE all entries (Admin only)
+app.delete('/api/entries', protect, adminOnly, async (req, res) => {
+  try {
+    await Entry.deleteMany({});
+    res.json({ message: 'All entries deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// POST bulk entries
+app.post('/api/entries/bulk', protect, async (req, res) => {
+  try {
+    const entries = req.body;
+    if (!Array.isArray(entries)) {
+      return res.status(400).json({ error: 'Data must be an array' });
+    }
+
+    const formattedEntries = entries.map(entry => ({
+      ...entry,
+      id: entry.id || uuidv4(),
+      userId: req.user._id,
+      createdAt: new Date()
+    }));
+
+    await Entry.insertMany(formattedEntries);
+    res.status(201).json({ message: `${formattedEntries.length} entries uploaded successfully` });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
