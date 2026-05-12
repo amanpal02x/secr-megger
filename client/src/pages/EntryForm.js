@@ -168,20 +168,20 @@ export default function EntryForm({ setActivePage, showToast }) {
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
       {/* Page Header */}
-      <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-end justify-between">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div className="inline-flex items-center text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
+          <div className="inline-flex items-center text-[10px] md:text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
             SECR / Signal &amp; Telecom
           </div>
-          <h1 className="text-2xl font-semibold text-navy-900 tracking-tight">6 Quad Cable Meggering Register</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Digitalized traditional register format for cable maintenance</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">6 Quad Meggering Register</h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">Digitalized traditional register format</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <button type="button" onClick={() => setActivePage('log')}
-            className="flex items-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-4 py-2.5 rounded-lg transition-colors"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-4 py-2.5 rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            View Data Log
+            View Log
           </button>
         </div>
       </div>
@@ -197,8 +197,8 @@ export default function EntryForm({ setActivePage, showToast }) {
       )}
 
       {uploadMode ? (
-        <div className="p-8 max-w-xl mx-auto w-full">
-          <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-10 flex flex-col items-center text-center">
+        <div className="p-4 md:p-8 max-w-xl mx-auto w-full">
+          <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 md:p-10 flex flex-col items-center text-center">
             <div className="w-16 h-16 bg-gold-50 text-gold-600 rounded-full flex items-center justify-center mb-4">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
             </div>
@@ -233,7 +233,7 @@ export default function EntryForm({ setActivePage, showToast }) {
           <SectionPanel number="01" title="Location & Date Information"
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>}
           >
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <FormLabel required>Division</FormLabel>
                 <Select value={form.divisionId} onChange={handleDivision} error={errors.divisionId}>
@@ -341,7 +341,7 @@ export default function EntryForm({ setActivePage, showToast }) {
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <FormLabel required>Technician</FormLabel>
                   <Input placeholder="Sign & Name" value={form.technicianName} onChange={e => set('technicianName', e.target.value)} error={errors.technicianName} />
@@ -357,19 +357,19 @@ export default function EntryForm({ setActivePage, showToast }) {
         </div>
 
         {/* Sticky footer */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-8 py-4 flex justify-end gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-20">
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 md:px-8 py-4 flex flex-row justify-end gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-20">
           <button type="button"
             onClick={() => { setForm(EMPTY); setErrors({}); setMajorSections([]); setSections([]); }}
-            className="px-5 py-2.5 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+            className="flex-1 md:flex-none px-5 py-2.5 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
           >
-            Reset Form
+            Reset
           </button>
           <button type="submit" disabled={submitting}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-navy-900 font-semibold text-sm rounded-lg transition-all hover:shadow-md hover:-translate-y-px disabled:cursor-not-allowed"
+            className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-navy-900 font-semibold text-sm rounded-lg transition-all hover:shadow-md hover:-translate-y-px disabled:cursor-not-allowed"
           >
             {submitting
               ? <><div className="w-4 h-4 border-2 border-navy-900/30 border-t-navy-900 rounded-full animate-spin" />Saving…</>
-              : <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Register Record</>
+              : <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Save Record</span></>
             }
           </button>
         </div>

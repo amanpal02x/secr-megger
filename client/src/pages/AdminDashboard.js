@@ -158,35 +158,37 @@ export default function AdminDashboard({ setActivePage, showToast }) {
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
       {/* Portal Header */}
-      <div className="bg-navy-900 px-8 py-6 flex items-end justify-between">
+      <div className="bg-navy-900 px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="inline-flex items-center text-[10px] font-bold text-gold-400 bg-gold-400/10 border border-gold-400/20 rounded px-2 py-0.5 uppercase tracking-widest mb-2">
             Global Admin Access
           </div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Admin Portal</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Full control over records and user authorization</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight">Admin Portal</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-0.5">Full control over records and user authorization</p>
         </div>
         
-        {/* Tabs */}
-        <div className="flex bg-navy-800 rounded-lg p-1 border border-navy-700">
-          {[
-            { id: 'overview', label: 'Overview' },
-            { id: 'log',      label: 'Master Log' },
-            { id: 'users',    label: 'User Auth' },
-            { id: 'system',   label: 'System' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                activeTab === tab.id 
-                ? 'bg-gold-500 text-navy-900 shadow-sm' 
-                : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Tabs - Scrollable on mobile */}
+        <div className="flex bg-navy-800 rounded-lg p-1 border border-navy-700 overflow-x-auto no-scrollbar">
+          <div className="flex min-w-max">
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'log',      label: 'Master Log' },
+              { id: 'users',    label: 'User Auth' },
+              { id: 'system',   label: 'System' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all whitespace-nowrap ${
+                  activeTab === tab.id 
+                  ? 'bg-gold-500 text-navy-900 shadow-sm' 
+                  : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -197,9 +199,9 @@ export default function AdminDashboard({ setActivePage, showToast }) {
         {activeTab === 'log' && <DataLog showToast={showToast} />}
 
         {activeTab === 'users' && (
-          <div className="p-8 max-w-5xl mx-auto w-full grid grid-cols-3 gap-8">
+          <div className="p-4 md:p-8 max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {/* Add User Form */}
-            <div className="col-span-1">
+            <div className="col-span-1 md:col-span-1">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="text-lg font-bold text-navy-900 mb-4">Authorize Personnel</h3>
                 {error && <div className="mb-4 p-2 bg-red-50 text-red-700 text-xs rounded border border-red-100">{error}</div>}
@@ -233,7 +235,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
             </div>
 
             {/* Users List */}
-            <div className="col-span-2">
+            <div className="col-span-1 md:col-span-2">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
                   <h3 className="text-sm font-bold text-navy-900 uppercase tracking-wide">Authorized Personnel</h3>
@@ -279,13 +281,13 @@ export default function AdminDashboard({ setActivePage, showToast }) {
         )}
 
         {activeTab === 'system' && (
-          <div className="p-8 max-w-4xl mx-auto w-full space-y-8">
+          <div className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-8">
             {/* Master Data Upload */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <h3 className="text-sm font-bold text-navy-900 uppercase tracking-wide">Update Dropdown Options</h3>
               </div>
-              <div className="p-8 flex items-center gap-8">
+              <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8">
                 <div className="flex-1">
                   <p className="text-sm text-slate-500 mb-4">Upload an Excel file to redefine all Division, Major Section, and Section options.</p>
                   <input 

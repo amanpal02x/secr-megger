@@ -27,36 +27,36 @@ export default function TechnicianDashboard({ setActivePage }) {
   return (
     <div className="flex-1 bg-slate-100 min-h-screen">
       {/* Welcome Header */}
-      <div className="bg-white border-b border-slate-200 px-8 py-8 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Technician Workspace</h1>
-          <p className="text-sm text-slate-500 mt-1">Record and manage your cable meggering tests</p>
+          <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">Technician Workspace</h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-1">Record and manage your cable meggering tests</p>
         </div>
         <button
           onClick={() => setActivePage('entry')}
-          className="flex items-center gap-2 bg-gold-500 hover:bg-gold-400 text-navy-900 font-bold px-6 py-3 rounded-xl shadow-lg shadow-gold-500/20 transition-all active:scale-95"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 text-navy-900 font-bold px-6 py-3 rounded-xl shadow-lg shadow-gold-500/20 transition-all active:scale-95"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Test Entry
+          <span className="sm:inline">New Test Entry</span>
         </button>
       </div>
 
-      <div className="p-8 grid grid-cols-12 gap-8">
+      <div className="p-4 md:p-8 grid grid-cols-12 gap-6 md:gap-8">
         
         {/* Left Column - Quick Overview */}
         <div className="col-span-12 lg:col-span-8 space-y-8">
           
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Total', value: stats.total, color: 'navy' },
               { label: 'Good', value: stats.good, color: 'green' },
               { label: 'Poor', value: stats.poor, color: 'amber' },
               { label: 'Critical', value: stats.critical, color: 'red' },
             ].map(s => (
-              <div key={s.label} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">{s.label}</p>
-                <p className={`text-3xl font-black text-${s.color}-600`}>{s.value}</p>
+              <div key={s.label} className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">{s.label}</p>
+                <p className={`text-2xl md:text-3xl font-black text-${s.color}-600`}>{s.value}</p>
               </div>
             ))}
           </div>

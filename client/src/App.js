@@ -12,16 +12,15 @@ function MainApp() {
   const { dbUser, loading } = useAuth();
   const [page, setPage] = useState('');
   const [toast, setToast] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (dbUser) {
-      // For Admin, always default to the 'admin' portal if on dashboard or empty
       if (dbUser.role === 'admin') {
         if (!page || page === 'dashboard') {
           setPage('admin');
         }
       } else {
-        // For Technician, default to 'dashboard' if empty
         if (!page) {
           setPage('dashboard');
         }
@@ -33,32 +32,70 @@ function MainApp() {
     setToast({ message, type });
   }, []);
 
+  // Close sidebar on page change (mobile)
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [page]);
+
   if (loading) {
-    return <div className="h-screen flex items-center justify-center bg-slate-100 font-bold text-navy-500">Loading App...</div>;
+    return <div className="h-screen flex items-center justify-center bg-slate-100 font-bold text-navy-500 text-center p-4">Loading App...</div>;
   }
 
   if (!dbUser) {
     return <Login />;
   }
 
-  if (page === 'admin' && dbUser.role === 'admin') {
-    return (
-      <div className="flex h-screen overflow-hidden font-sans">
-        <Sidebar activePage={page} setActivePage={setPage} />
-        <AdminDashboard setActivePage={setPage} showToast={showToast} />
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      </div>
-    );
-  }
+  const renderPage = () => {
+    if (page === 'admin' && dbUser.role === 'admin') {
+      return <AdminDashboard setActivePage={setPage} showToast={showToast} />;
+    }
+    switch (page) {
+      case 'dashboard': return <TechnicianDashboard setActivePage={setPage} />;
+      case 'entry':     return <EntryForm setActivePage={setPage} showToast={showToast} />;
+      case 'log':       return <DataLog showToast={showToast} />;
+      default:          return <TechnicianDashboard setActivePage={setPage} />;
+    }
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans">
-      <Sidebar activePage={page} setActivePage={setPage} />
-      <main className="flex-1 overflow-y-auto">
-        {page === 'dashboard' && <TechnicianDashboard setActivePage={setPage} />}
-        {page === 'entry'     && <EntryForm setActivePage={setPage} showToast={showToast} />}
-        {page === 'log'       && <DataLog showToast={showToast} />}
-      </main>
+    <div className="flex h-screen overflow-hidden font-sans bg-slate-100">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Wrapper */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <Sidebar activePage={page} setActivePage={setPage} onClose={() => setIsSidebarOpen(false)} />
+      </div>
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile Top Bar */}
+        <header className="lg:hidden bg-navy-900 text-white px-4 py-3 flex items-center justify-between shadow-md z-30">
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gold-400">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-gold-400 font-bold tracking-tighter text-lg">SECR</span>
+            <span className="w-px h-4 bg-navy-700"></span>
+            <span className="text-[10px] uppercase tracking-widest text-slate-400 font-medium pt-0.5">Portal</span>
+          </div>
+          <div className="w-8"></div> {/* Spacer for centering */}
+        </header>
+
+        <main className="flex-1 overflow-y-auto focus:outline-none bg-slate-100">
+          {renderPage()}
+        </main>
+      </div>
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );

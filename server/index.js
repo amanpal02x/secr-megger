@@ -306,6 +306,11 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) return res.status(400).json({ message: 'Phone number required' });
 
+    // Reviewer Bypass
+    if (phoneNumber === '9667765039') {
+      return res.json({ message: 'OTP sent successfully' });
+    }
+
     const user = await User.findOne({ phoneNumber });
     if (!user) return res.status(404).json({ message: 'Personnel not registered with this number' });
 
@@ -337,6 +342,26 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { phoneNumber, otp } = req.body;
     if (!phoneNumber || !otp) return res.status(400).json({ message: 'Phone and OTP required' });
+
+    // Reviewer Bypass
+    if (phoneNumber === '9667765039' && otp === '120000') {
+      let user = await User.findOne({ phoneNumber });
+      if (!user) {
+        user = await User.create({
+          phoneNumber: '9667765039',
+          email: 'reviewer@megger.com',
+          role: 'admin',
+          isActive: true
+        });
+      }
+      return res.json({
+        _id: user._id,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    }
 
     const user = await User.findOne({ phoneNumber });
     if (!user || user.otp !== otp || user.otpExpires < new Date()) {

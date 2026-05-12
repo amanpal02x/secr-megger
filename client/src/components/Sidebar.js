@@ -15,29 +15,41 @@ const NavItem = ({ active, onClick, icon, label }) => (
   </button>
 );
 
-export default function Sidebar({ activePage, setActivePage }) {
+export default function Sidebar({ activePage, setActivePage, onClose }) {
   const { dbUser, logout } = useAuth();
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
-    <aside className="w-60 min-w-[240px] bg-navy-900 flex flex-col h-screen sticky top-0 border-r border-navy-700">
+    <aside className="w-64 max-w-[85vw] lg:w-60 bg-navy-900 flex flex-col h-screen sticky top-0 border-r border-navy-700 shadow-2xl lg:shadow-none">
 
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex-shrink-0">
-          <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
-            <rect x="1" y="1" width="32" height="32" rx="5" fill="#0c2044" stroke="#e8b830" strokeWidth="1.5"/>
-            <path d="M6 24 L10 14 L14 20 L18 11 L22 16 L28 24" stroke="#e8b830" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <circle cx="28" cy="9" r="2.2" fill="#e8b830"/>
+      {/* Brand & Close */}
+      <div className="flex items-center justify-between px-5 py-5 lg:py-6">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0">
+            <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+              <rect x="1" y="1" width="32" height="32" rx="5" fill="#0c2044" stroke="#e8b830" strokeWidth="1.5"/>
+              <path d="M6 24 L10 14 L14 20 L18 11 L22 16 L28 24" stroke="#e8b830" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              <circle cx="28" cy="9" r="2.2" fill="#e8b830"/>
+            </svg>
+          </div>
+          <div>
+            <div className="text-gold-400 font-semibold text-lg tracking-widest leading-none uppercase">SECR</div>
+            <div className="text-slate-500 text-[10px] uppercase tracking-wide mt-1 font-medium">Maintenance</div>
+          </div>
+        </div>
+
+        {/* Close button - only visible on mobile */}
+        <button 
+          onClick={onClose}
+          className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
-        </div>
-        <div>
-          <div className="text-gold-400 font-semibold text-lg tracking-widest leading-none">SECR</div>
-          <div className="text-slate-500 text-[10px] uppercase tracking-wide mt-1">Maintenance Portal</div>
-        </div>
+        </button>
       </div>
 
-      <div className="mx-4 border-t border-navy-700" />
+      <div className="mx-4 border-t border-navy-700/50" />
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
