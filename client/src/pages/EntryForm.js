@@ -29,6 +29,7 @@ const EMPTY = {
   quadReadings: QUAD_NAMES.map(name => ({ ...EMPTY_QUAD, quadNo: name })),
   technicianName: '', supervisorName: '',
   testDate: new Date().toISOString().split('T')[0],
+  attachment: '',
 };
 
 function SectionPanel({ number, title, icon, children }) {
@@ -68,6 +69,21 @@ export default function EntryForm({ setActivePage, showToast }) {
     if (errors[name]) setErrors(e => { const c = { ...e }; delete c[name]; return c; });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        set('attachment', reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleDivision = e => {
     const d = divisions.find(x => x.id === e.target.value);
     setForm(f => ({ ...f, divisionId: e.target.value, divisionName: d?.name || '', majorSectionId: '', majorSectionName: '', sectionId: '', sectionName: '' }));
@@ -100,6 +116,7 @@ export default function EntryForm({ setActivePage, showToast }) {
     if (!form.sectionId) e.sectionId = 'Select a section';
     if (!form.technicianName.trim()) e.technicianName = 'Name required';
     if (!form.testDate) e.testDate = 'Date required';
+    if (!form.attachment) e.attachment = 'Image/File upload is required';
     return e;
   };
 
@@ -336,6 +353,31 @@ export default function EntryForm({ setActivePage, showToast }) {
             </div>
           </SectionPanel>
 
+          {/* Small Upload Button */}
+          <div className="flex flex-col items-center gap-1.5 pt-2 pb-1">
+            <div className="flex items-center gap-3">
+              <label className={`group flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all border-2 border-dashed ${form.attachment ? 'bg-green-50 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-gold-400 hover:text-navy-900 shadow-sm'}`}>
+                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={handleFileChange} />
+                <svg className={`w-4 h-4 ${form.attachment ? 'text-green-500' : 'text-slate-400 group-hover:text-gold-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span className="text-[13px] font-bold">{form.attachment ? 'Evidence Attached' : 'Attach Photo/Report'}</span>
+                {form.attachment && <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>}
+              </label>
+              
+              {form.attachment && form.attachment.startsWith('data:image/') && (
+                <div className="relative group cursor-pointer" onClick={() => window.open(form.attachment, '_blank')}>
+                  <img src={form.attachment} alt="mini-preview" className="h-9 w-9 object-cover rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-200" />
+                  <div className="absolute inset-0 bg-navy-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!form.attachment && !errors.attachment && (
+              <span className="text-[9px] font-bold text-gold-600 uppercase tracking-widest bg-gold-50 px-2 py-0.5 rounded-full">Mandatory for submission</span>
+            )}
+            <FieldError message={errors.attachment} />
+          </div>
+
           {/* Section 03 — Personnel */}
           <SectionPanel number="03" title="Personnel"
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
@@ -354,6 +396,8 @@ export default function EntryForm({ setActivePage, showToast }) {
             </div>
           </SectionPanel>
 
+
+
         </div>
 
         {/* Sticky footer */}
@@ -364,13 +408,22 @@ export default function EntryForm({ setActivePage, showToast }) {
           >
             Reset
           </button>
-          <button type="submit" disabled={submitting}
-            className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-navy-900 font-semibold text-sm rounded-lg transition-all hover:shadow-md hover:-translate-y-px disabled:cursor-not-allowed"
+          <button type="submit" disabled={submitting || !form.attachment}
+            className={`flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all font-semibold text-sm
+              ${(!form.attachment || submitting) 
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                : 'bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-sm hover:shadow-md hover:-translate-y-px active:scale-95'}`}
           >
-            {submitting
-              ? <><div className="w-4 h-4 border-2 border-navy-900/30 border-t-navy-900 rounded-full animate-spin" />Saving…</>
-              : <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Save Record</span></>
-            }
+            {submitting ? (
+              <><div className="w-4 h-4 border-2 border-navy-900/30 border-t-navy-900 rounded-full animate-spin" />Saving…</>
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>{form.attachment ? 'Save Record' : 'Upload File to Save'}</span>
+              </>
+            )}
           </button>
         </div>
       </form>

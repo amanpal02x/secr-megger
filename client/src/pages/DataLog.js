@@ -290,6 +290,32 @@ export default function DataLog({ showToast }) {
                                     </div>
                                   ))}
                                 </div>
+                                {e.attachment && (
+                                  <div className="md:col-span-1 border-l border-slate-100 pl-6 flex flex-col justify-center">
+                                    <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">Evidence Attachment</p>
+                                    {e.attachment.startsWith('data:image/') ? (
+                                      <div className="relative group cursor-pointer w-fit" onClick={() => window.open(e.attachment, '_blank')}>
+                                        <img src={e.attachment} alt="Evidence" className="h-16 w-24 object-cover rounded border border-slate-200" />
+                                        <div className="absolute inset-0 bg-navy-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        onClick={() => {
+                                          const link = document.createElement('a');
+                                          link.href = e.attachment;
+                                          link.download = `Evidence_${e.id.substring(0,8)}`;
+                                          link.click();
+                                        }}
+                                        className="flex items-center gap-2 px-2.5 py-1.5 bg-navy-50 text-navy-700 rounded text-[11px] font-bold hover:bg-navy-100 transition-colors w-fit"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                        View File
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>

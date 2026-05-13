@@ -133,10 +133,11 @@ app.post('/api/entries', protect, async (req, res) => {
       technicianName,
       supervisorName,
       testDate,
+      attachment,
     } = req.body;
 
-    if (!divisionId || !majorSectionId || !sectionId || !technicianName || !testDate) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!divisionId || !majorSectionId || !sectionId || !technicianName || !testDate || !attachment) {
+      return res.status(400).json({ error: 'Missing required fields (including attachment)' });
     }
 
     // Calculate overall condition
@@ -176,6 +177,7 @@ app.post('/api/entries', protect, async (req, res) => {
       technicianName,
       supervisorName,
       testDate,
+      attachment,
       userId: req.user._id,
     });
 
@@ -390,6 +392,36 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
+// Reset Password with OTP
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { phoneNumber, otp, newPassword } = req.body;
+    if (!phoneNumber || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const user = await User.findOne({ phoneNumber });
+    if (!user) return res.status(404).json({ message: 'User not found with this mobile number' });
+
+    if (user.otp !== otp || user.otpExpires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    // Reset OTP
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ success: true, message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -483,7 +515,7 @@ app.get('/api/users', protect, adminOnly, async (req, res) => {
 // Admin: Create user (with password)
 app.post('/api/users', protect, adminOnly, async (req, res) => {
   try {
-    const { phoneNumber, email, password, role } = req.body;
+    const { name, phoneNumber, email, password, role } = req.body;
     
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -495,6 +527,7 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
     }
 
     const user = await User.create({
+      name,
       phoneNumber,
       email,
       password,
@@ -503,10 +536,33 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
 
     res.status(201).json({
       _id: user._id,
+      name: user.name,
       email: user.email,
       phoneNumber: user.phoneNumber,
       role: user.role
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Admin: Update user
+app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const { name, phoneNumber, email, password, role, isActive } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (name) user.name = name;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (email) user.email = email;
+    if (role) user.role = role;
+    if (isActive !== undefined) user.isActive = isActive;
+    if (password) user.password = password; // pre-save hook will hash it
+
+    await user.save();
+    res.json(user);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });

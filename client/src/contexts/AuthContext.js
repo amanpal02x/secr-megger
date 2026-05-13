@@ -106,6 +106,21 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const resetPassword = async (phoneNumber, otp, newPassword) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, otp, newPassword })
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message };
+    } catch (error) {
+      console.error("AuthContext: resetPassword error:", error);
+      return { success: false, message: 'Connection failed' };
+    }
+  };
+
   const signup = async (email, password, phoneNumber) => {
     // ... signup logic ...
   };
@@ -123,6 +138,7 @@ export function AuthProvider({ children }) {
     login,
     sendOtp,
     loginWithOtp,
+    resetPassword,
     signup,
     logout
   };
