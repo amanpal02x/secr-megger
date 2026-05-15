@@ -470,9 +470,16 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(403).json({ message: 'Registration disabled. Use Admin Portal to add users.' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ 
+      $or: [
+        { email: email },
+        { phoneNumber: phoneNumber }
+      ]
+    });
+
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      const field = userExists.email === email ? 'Email' : 'Phone number';
+      return res.status(400).json({ message: `${field} already registered` });
     }
 
     const user = await User.create({
@@ -521,9 +528,16 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ 
+      $or: [
+        { email: email },
+        { phoneNumber: phoneNumber }
+      ]
+    });
+
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      const field = userExists.email === email ? 'Email' : 'Phone number';
+      return res.status(400).json({ message: `${field} already registered` });
     }
 
     const user = await User.create({
@@ -543,6 +557,11 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      const fieldName = field === 'phoneNumber' ? 'Phone number' : field.charAt(0).toUpperCase() + field.slice(1);
+      return res.status(400).json({ message: `${fieldName} already exists` });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 });
@@ -565,6 +584,11 @@ app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
     res.json(user);
   } catch (error) {
     console.error(error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      const fieldName = field === 'phoneNumber' ? 'Phone number' : field.charAt(0).toUpperCase() + field.slice(1);
+      return res.status(400).json({ message: `${fieldName} already exists` });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 });
