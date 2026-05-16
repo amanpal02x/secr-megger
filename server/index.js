@@ -11,7 +11,8 @@ const connectDB = require('./config/db');
 const Entry = require('./models/Entry');
 const User = require('./models/User');
 const Location = require('./models/Location');
-const { protect, adminOnly } = require('./middleware/auth');
+const { protect, adminOnly, authorize } = require('./middleware/auth');
+const setupMCP = require('./mcp');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,44 @@ connectDB();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Initialize Claude MCP
+setupMCP(app);
+
+// GET OpenAPI Spec (For ChatGPT Actions)
+app.get('/api/openapi.json', (req, res) => {
+  res.json({
+    openapi: "3.0.0",
+    info: {
+      title: "SECR Megger AI API",
+      version: "1.0.0",
+      description: "API for querying SECR Cable Route Megger data."
+    },
+    servers: [{ url: "https://your-backend.render.com" }],
+    paths: {
+      "/api/ai/summary": {
+        get: {
+          summary: "Get health summary",
+          parameters: [{ name: "division", in: "query", schema: { type: "string" } }],
+          responses: { 200: { description: "Successful response" } }
+        }
+      },
+      "/api/ai/section-history": {
+        get: {
+          summary: "Get historical trends for a section",
+          parameters: [{ name: "sectionName", in: "query", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Successful response" } }
+        }
+      }
+    },
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: { type: "apiKey", in: "header", name: "x-api-key" }
+      }
+    },
+    security: [{ ApiKeyAuth: [] }]
+  });
+});
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -84,8 +123,8 @@ app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
   }
 });
 
-// GET all entries
-app.get('/api/entries', protect, async (req, res) => {
+// GET all entries (Supports AI API Key)
+app.get('/api/entries', authorize, async (req, res) => {
   try {
     const { division, search, days } = req.query;
     let query = {};
@@ -243,8 +282,8 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
   }
 });
 
-// GET stats
-app.get('/api/stats', protect, async (req, res) => {
+// GET stats (Supports AI API Key)
+app.get('/api/stats', authorize, async (req, res) => {
   try {
     let query = {};
     if (req.user.role !== 'admin') {
@@ -257,6 +296,68 @@ app.get('/api/stats', protect, async (req, res) => {
     const poor = await Entry.countDocuments({ ...query, condition: 'Poor' });
     const critical = await Entry.countDocuments({ ...query, condition: 'Critical' });
     res.json({ total, good, fair, poor, critical });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// --- AI SPECIFIC ENDPOINTS --- //
+
+// GET AI Summary (Aggregated data for AI insight)
+app.get('/api/ai/summary', authorize, async (req, res) => {
+  try {
+    const { division } = req.query;
+    let query = {};
+    if (division) query.divisionName = division;
+
+    // Aggregate counts by condition
+    const stats = await Entry.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$condition",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Aggregate by major section for distribution
+    const distribution = await Entry.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$majorSectionName",
+          total: { $sum: 1 },
+          critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
+          poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
+        }
+      },
+      { $sort: { critical: -1, poor: -1 } }
+    ]);
+
+    res.json({
+      summary: stats,
+      topFaultAreas: distribution.slice(0, 5), // Top 5 areas needing attention
+      timestamp: new Date()
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET Section Detail with History (For trend analysis)
+app.get('/api/ai/section-history', authorize, async (req, res) => {
+  try {
+    const { sectionName } = req.query;
+    if (!sectionName) return res.status(400).json({ message: 'sectionName is required' });
+
+    // Fetch last 5 readings for this section
+    const history = await Entry.find({ sectionName: { $regex: sectionName, $options: 'i' } })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('testDate condition quadReadings technicianName');
+
+    res.json(history);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -601,6 +702,24 @@ app.delete('/api/users/:id', protect, adminOnly, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     res.json({ message: 'User removed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// --- ADMIN: API KEY MANAGEMENT --- //
+// Generate/Update API Key for a user (Admin Only)
+app.post('/api/admin/generate-api-key', protect, adminOnly, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const newApiKey = `secr_${uuidv4().replace(/-/g, '')}`;
+    user.apiKey = newApiKey;
+    await user.save();
+
+    res.json({ message: 'API Key generated successfully', apiKey: newApiKey });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }

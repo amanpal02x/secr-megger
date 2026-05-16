@@ -40,4 +40,39 @@ const adminOnly = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly };
+const apiKeyAuth = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+
+  if (apiKey) {
+    try {
+      const user = await User.findOne({ apiKey }).select('-password');
+
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid API Key' });
+      }
+
+      if (!user.isActive) {
+        return res.status(403).json({ message: 'User account is inactive' });
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      res.status(500).json({ message: 'Server Error during API Key verification' });
+    }
+  } else {
+    // If no API key, fall back to protect (JWT) logic or just fail
+    // For routes that allow both, we can use a wrapper.
+    res.status(401).json({ message: 'Not authorized, no API key provided' });
+  }
+};
+
+// Allows either JWT or API Key
+const authorize = async (req, res, next) => {
+  if (req.headers['x-api-key']) {
+    return apiKeyAuth(req, res, next);
+  }
+  return protect(req, res, next);
+};
+
+module.exports = { protect, adminOnly, apiKeyAuth, authorize };
