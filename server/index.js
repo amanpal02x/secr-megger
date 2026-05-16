@@ -353,24 +353,26 @@ const buildAIQuery = (reqQuery) => {
     }
   }
 
-  // Abbreviation mapping (bsp -> bilaspur, r -> raipur, ngp -> nagpur)
-  const parseKeyword = (kw) => {
-    if (!kw) return kw;
+  // Returns array of Regexes to match both abbreviations and full names
+  const getSearchRegexes = (kw) => {
+    if (!kw) return [];
     const lower = kw.toLowerCase().trim();
-    if (lower === 'bsp') return 'bilaspur';
-    if (lower === 'r') return 'raipur';
-    if (lower === 'ngp') return 'nagpur';
-    return kw;
+    let terms = [];
+    if (lower === 'bsp' || lower === 'bilaspur') terms = ['bsp', 'bilaspur'];
+    else if (lower === 'r' || lower === 'raipur') terms = ['^r$', 'raipur']; // ^r$ prevents matching every 'r'
+    else if (lower === 'ngp' || lower === 'nagpur') terms = ['ngp', 'nagpur'];
+    else terms = [kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')];
+    
+    return terms.map(t => new RegExp(t, 'i'));
   };
 
   if (division) {
-    const div = parseKeyword(division).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    query.divisionName = { $regex: new RegExp(div, 'i') };
+    query.divisionName = { $in: getSearchRegexes(division) };
   }
   
   if (technicianName) {
-    const tech = technicianName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    query.technicianName = { $regex: new RegExp(tech, 'i') };
+    const techRegex = getSearchRegexes(technicianName)[0];
+    if (techRegex) query.technicianName = { $regex: techRegex };
   }
 
   if (condition) {
@@ -379,13 +381,15 @@ const buildAIQuery = (reqQuery) => {
   }
 
   if (q) {
-    const safeQ = parseKeyword(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    query.$or = [
-      { sectionName: { $regex: safeQ, $options: 'i' } },
-      { majorSectionName: { $regex: safeQ, $options: 'i' } },
-      { divisionName: { $regex: safeQ, $options: 'i' } },
-      { technicianName: { $regex: safeQ, $options: 'i' } }
-    ];
+    const qRegexes = getSearchRegexes(q);
+    if (qRegexes.length > 0) {
+      query.$or = [
+        { sectionName: { $in: qRegexes } },
+        { majorSectionName: { $in: qRegexes } },
+        { divisionName: { $in: qRegexes } },
+        { technicianName: { $in: qRegexes } }
+      ];
+    }
   }
 
   return query;
