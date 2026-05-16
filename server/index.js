@@ -164,9 +164,11 @@ app.get('/api/entries', authorize, async (req, res) => {
     let query = {};
     if (division) query.divisionId = division;
     
-    // Non-admins only see their own entries
-    if (req.user.role !== 'admin') {
+    // Scoping rules based on role
+    if (req.user.role === 'user') {
       query.userId = req.user._id;
+    } else if (req.user.role === 'sub_admin') {
+      query.divisionName = req.user.division;
     }
 
     if (days) {
@@ -175,7 +177,8 @@ app.get('/api/entries', authorize, async (req, res) => {
       query.createdAt = { $gte: startDate };
     }
     
-    let entries = await Entry.find(query).sort({ createdAt: -1 });
+    // Project to exclude massive base64 attachment field by default for instant loads
+    let entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 });
 
     if (search) {
       const q = search.toLowerCase();
@@ -187,6 +190,26 @@ app.get('/api/entries', authorize, async (req, res) => {
     }
     res.json(entries);
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET single entry details (with attachment) on demand
+app.get('/api/entries/:id', protect, async (req, res) => {
+  try {
+    const entry = await Entry.findOne({ id: req.params.id });
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
+      return res.status(403).json({ error: 'Unauthorized for this division' });
+    }
+
+    res.json(entry);
+  } catch (error) {
+    console.error('Error fetching entry details:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
@@ -261,12 +284,20 @@ app.post('/api/entries', protect, async (req, res) => {
   }
 });
 
-// PUT update entry
 app.put('/api/entries/:id', protect, async (req, res) => {
   try {
-    const entry = await Entry.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    const entry = await Entry.findOne({ id: req.params.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
-    res.json(entry);
+    
+    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
+      return res.status(403).json({ error: 'Unauthorized for this division' });
+    }
+
+    const updated = await Entry.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -275,8 +306,17 @@ app.put('/api/entries/:id', protect, async (req, res) => {
 // DELETE entry
 app.delete('/api/entries/:id', protect, async (req, res) => {
   try {
-    const entry = await Entry.findOneAndDelete({ id: req.params.id });
+    const entry = await Entry.findOne({ id: req.params.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
+      return res.status(403).json({ error: 'Unauthorized for this division' });
+    }
+
+    await Entry.findOneAndDelete({ id: req.params.id });
     res.json({ message: 'Entry deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
@@ -301,12 +341,39 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
       return res.status(400).json({ error: 'Data must be an array' });
     }
 
-    const formattedEntries = entries.map(entry => ({
-      ...entry,
-      id: entry.id || uuidv4(),
-      userId: req.user._id,
-      createdAt: new Date()
-    }));
+    const formattedEntries = entries.map(entry => {
+      let worstCondition = 'Good';
+      const quadReadings = entry.quadReadings;
+
+      if (quadReadings && Array.isArray(quadReadings)) {
+        quadReadings.forEach(q => {
+          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+          readings.forEach(r => {
+            if (!r) return;
+            const val = parseFloat(r.replace(/[^\d.]/g, ''));
+            if (isNaN(val)) return;
+            
+            let currentCond = 'Good';
+            if (val < 1) currentCond = 'Critical';
+            else if (val < 5) currentCond = 'Poor';
+            else if (val < 10) currentCond = 'Fair';
+
+            const weights = { Critical: 3, Poor: 2, Fair: 1, Good: 0 };
+            if (weights[currentCond] > weights[worstCondition]) {
+              worstCondition = currentCond;
+            }
+          });
+        });
+      }
+
+      return {
+        ...entry,
+        id: entry.id || uuidv4(),
+        userId: req.user._id,
+        condition: worstCondition,
+        createdAt: new Date()
+      };
+    });
 
     await Entry.insertMany(formattedEntries);
     res.status(201).json({ message: `${formattedEntries.length} entries uploaded successfully` });
@@ -320,17 +387,24 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
 app.get('/api/stats', authorize, async (req, res) => {
   try {
     let query = {};
-    if (req.user.role !== 'admin') {
+    if (req.user.role === 'user') {
       query.userId = req.user._id;
+    } else if (req.user.role === 'sub_admin') {
+      query.divisionName = req.user.division;
     }
 
-    const total = await Entry.countDocuments(query);
-    const good = await Entry.countDocuments({ ...query, condition: 'Good' });
-    const fair = await Entry.countDocuments({ ...query, condition: 'Fair' });
-    const poor = await Entry.countDocuments({ ...query, condition: 'Poor' });
-    const critical = await Entry.countDocuments({ ...query, condition: 'Critical' });
+    // Execute all 5 count queries in parallel to drastically improve performance
+    const [total, good, fair, poor, critical] = await Promise.all([
+      Entry.countDocuments(query),
+      Entry.countDocuments({ ...query, condition: 'Good' }),
+      Entry.countDocuments({ ...query, condition: 'Fair' }),
+      Entry.countDocuments({ ...query, condition: 'Poor' }),
+      Entry.countDocuments({ ...query, condition: 'Critical' })
+    ]);
+
     res.json({ total, good, fair, poor, critical });
   } catch (error) {
+    console.error('Stats query error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
@@ -618,7 +692,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         user = await User.create({
           phoneNumber: '9667765039',
           email: 'reviewer@megger.com',
-          role: 'admin',
+          role: 'global_admin',
           isActive: true
         });
       }
@@ -778,7 +852,11 @@ app.get('/api/auth/me', protect, async (req, res) => {
 // Admin: Get all users
 app.get('/api/users', protect, adminOnly, async (req, res) => {
   try {
-    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+    let query = {};
+    if (req.user.role === 'sub_admin') {
+      query.division = req.user.division;
+    }
+    const users = await User.find(query).select('-password').sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
@@ -788,8 +866,13 @@ app.get('/api/users', protect, adminOnly, async (req, res) => {
 // Admin: Create user (with password)
 app.post('/api/users', protect, adminOnly, async (req, res) => {
   try {
-    const { name, phoneNumber, email, password, role } = req.body;
+    let { name, phoneNumber, email, password, role, division } = req.body;
     
+    if (req.user.role === 'sub_admin') {
+      role = 'user'; // Sub admins can only create users
+      division = req.user.division; // Force division
+    }
+
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
@@ -811,7 +894,8 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
       phoneNumber,
       email,
       password,
-      role: role || 'user'
+      role: role || 'user',
+      division
     });
 
     res.status(201).json({
@@ -819,7 +903,8 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
       name: user.name,
       email: user.email,
       phoneNumber: user.phoneNumber,
-      role: user.role
+      role: user.role,
+      division: user.division
     });
   } catch (error) {
     console.error(error);
@@ -835,14 +920,21 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
 // Admin: Update user
 app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
   try {
-    const { name, phoneNumber, email, password, role, isActive } = req.body;
+    let { name, phoneNumber, email, password, role, isActive, division } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (req.user.role === 'sub_admin') {
+      if (user.division !== req.user.division) return res.status(403).json({ message: 'Unauthorized to edit this user' });
+      role = user.role; // cannot change role
+      division = user.division; // cannot change division
+    }
 
     if (name) user.name = name;
     if (phoneNumber) user.phoneNumber = phoneNumber;
     if (email) user.email = email;
     if (role) user.role = role;
+    if (division !== undefined) user.division = division;
     if (isActive !== undefined) user.isActive = isActive;
     if (password) user.password = password; // pre-save hook will hash it
 
@@ -862,10 +954,14 @@ app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
 // Admin: Delete user
 app.delete('/api/users/:id', protect, adminOnly, async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    if (req.user.role === 'sub_admin' && user.division !== req.user.division) {
+      return res.status(403).json({ message: 'Unauthorized to delete this user' });
+    }
+    await User.findByIdAndDelete(req.params.id);
     res.json({ message: 'User removed' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });

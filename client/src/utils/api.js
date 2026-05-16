@@ -23,6 +23,7 @@ export const sendOtp = (phoneNumber) => API.post('/auth/send-otp', { phoneNumber
 export const verifyOtp = (phoneNumber, otp) => API.post('/auth/verify-otp', { phoneNumber, otp }).then(r => r.data);
 export const resetPassword = (phoneNumber, otp, newPassword) => API.post('/auth/reset-password', { phoneNumber, otp, newPassword }).then(r => r.data);
 export const getEntries = (params) => API.get('/entries', { params }).then(r => r.data);
+export const getEntry = (id) => API.get(`/entries/${id}`).then(r => r.data);
 export const createEntry = (data) => API.post('/entries', data).then(r => r.data);
 export const createEntriesBulk = (data) => API.post('/entries/bulk', data).then(r => r.data);
 export const createLocationsBulk = (data) => API.post('/locations/bulk', data).then(r => r.data);

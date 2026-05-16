@@ -46,7 +46,8 @@ function SectionPanel({ number, title, icon, children }) {
 }
 
 export default function EntryForm({ setActivePage, showToast }) {
-  const [form, setForm] = useState(EMPTY);
+  const { dbUser } = useAuth();
+  const [form, setForm] = useState({ ...EMPTY, technicianName: dbUser?.name || '' });
   const [divisions, setDivisions] = useState([]);
   const [majorSections, setMajorSections] = useState([]);
   const [sections, setSections] = useState([]);
@@ -56,7 +57,6 @@ export default function EntryForm({ setActivePage, showToast }) {
   const [uploadMode, setUploadMode] = useState(false);
   const [uploadType, setUploadType] = useState('records'); // 'records' or 'master'
   const [bulkFile, setBulkFile] = useState(null);
-  const { dbUser } = useAuth();
 
   const refreshDropdowns = () => {
     getDivisions().then(setDivisions);
@@ -129,7 +129,7 @@ export default function EntryForm({ setActivePage, showToast }) {
       await createEntry(form);
       showToast('Test record saved successfully.', 'success');
       setSavedBanner(true); setTimeout(() => setSavedBanner(false), 4000);
-      setForm(EMPTY); setErrors({}); setMajorSections([]); setSections([]);
+      setForm({ ...EMPTY, technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]);
     } catch { showToast('Failed to save. Please try again.', 'error'); }
     finally { setSubmitting(false); }
   };
@@ -385,11 +385,11 @@ export default function EntryForm({ setActivePage, showToast }) {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <FormLabel required>Technician</FormLabel>
+                  <FormLabel required>Name</FormLabel>
                   <Input placeholder="Sign & Name" value={form.technicianName} onChange={e => set('technicianName', e.target.value)} error={errors.technicianName} />
                 </div>
                 <div>
-                  <FormLabel>Supervisor / SSE</FormLabel>
+                  <FormLabel>Designation</FormLabel>
                   <Input placeholder="Full name" value={form.supervisorName} onChange={e => set('supervisorName', e.target.value)} />
                 </div>
               </div>
@@ -403,7 +403,7 @@ export default function EntryForm({ setActivePage, showToast }) {
         {/* Sticky footer */}
         <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 md:px-8 py-4 flex flex-row justify-end gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-20">
           <button type="button"
-            onClick={() => { setForm(EMPTY); setErrors({}); setMajorSections([]); setSections([]); }}
+            onClick={() => { setForm({ ...EMPTY, technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]); }}
             className="flex-1 md:flex-none px-5 py-2.5 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
           >
             Reset

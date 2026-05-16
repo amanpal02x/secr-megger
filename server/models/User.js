@@ -24,8 +24,11 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'user'],
+    enum: ['global_admin', 'sub_admin', 'user', 'admin'], // keep 'admin' temporarily to avoid validation errors during migration
     default: 'user',
+  },
+  division: {
+    type: String,
   },
   isActive: {
     type: Boolean,

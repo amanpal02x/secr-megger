@@ -7,6 +7,7 @@ import DataLog from './pages/DataLog';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import TechnicianDashboard from './pages/TechnicianDashboard';
+import Dashboard from './pages/Dashboard';
 
 function MainApp() {
   const { dbUser, loading } = useAuth();
@@ -15,18 +16,43 @@ function MainApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (dbUser) {
-      if (dbUser.role === 'admin') {
-        if (!page || page === 'dashboard') {
-          setPage('admin');
-        }
+    if (dbUser && !page) {
+      const searchParams = new URLSearchParams(window.location.search);
+      let initialPage = searchParams.get('page');
+      
+      if (!initialPage) {
+        initialPage = 'dashboard';
+        window.history.replaceState({ page: initialPage }, '', `?page=${initialPage}`);
       } else {
-        if (!page) {
-          setPage('dashboard');
-        }
+        window.history.replaceState({ page: initialPage }, '', `?page=${initialPage}`);
       }
+      setPage(initialPage);
     }
   }, [dbUser, page]);
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state && event.state.page) {
+        setPage(event.state.page);
+      } else {
+        const searchParams = new URLSearchParams(window.location.search);
+        const p = searchParams.get('page');
+        if (p) setPage(p);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleSetPage = useCallback((newPage) => {
+    setPage(prev => {
+      if (prev !== newPage) {
+        window.history.pushState({ page: newPage }, '', `?page=${newPage}`);
+        return newPage;
+      }
+      return prev;
+    });
+  }, []);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -46,14 +72,13 @@ function MainApp() {
   }
 
   const renderPage = () => {
-    if (page === 'admin' && dbUser.role === 'admin') {
-      return <AdminDashboard setActivePage={setPage} showToast={showToast} />;
-    }
+    const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser.role);
     switch (page) {
-      case 'dashboard': return <TechnicianDashboard setActivePage={setPage} />;
-      case 'entry':     return <EntryForm setActivePage={setPage} showToast={showToast} />;
+      case 'dashboard': return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      case 'entry':     return <EntryForm setActivePage={handleSetPage} showToast={showToast} />;
       case 'log':       return <DataLog showToast={showToast} />;
-      default:          return <TechnicianDashboard setActivePage={setPage} />;
+      case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      default:          return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
     }
   };
 
@@ -72,7 +97,7 @@ function MainApp() {
         fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <Sidebar activePage={page} setActivePage={setPage} onClose={() => setIsSidebarOpen(false)} />
+        <Sidebar activePage={page} setActivePage={handleSetPage} onClose={() => setIsSidebarOpen(false)} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

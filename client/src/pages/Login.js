@@ -81,7 +81,12 @@ export default function Login() {
 
       if (result.success) {
         // Enforce role check
-        if (result.user.role !== loginMode) {
+        const userRole = result.user.role;
+        const isAuthorized = loginMode === 'admin' 
+          ? ['admin', 'global_admin', 'sub_admin'].includes(userRole)
+          : userRole === 'user';
+
+        if (!isAuthorized) {
           logout(); // Force logout if role doesn't match intent
           setError(`This account does not have ${loginMode === 'admin' ? 'Administrative' : 'Technician'} privileges.`);
           setOtpSent(false);
