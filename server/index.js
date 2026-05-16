@@ -40,9 +40,14 @@ app.get('/api/openapi.json', (req, res) => {
     paths: {
       "/api/ai/summary": {
         get: {
-          summary: "Get health summary",
+          summary: "Get health summary. Supports filtering by division, technician, and date range.",
           operationId: "getHealthSummary",
-          parameters: [{ name: "division", in: "query", schema: { type: "string" } }],
+          parameters: [
+            { name: "division", in: "query", schema: { type: "string" } },
+            { name: "technicianName", in: "query", schema: { type: "string" } },
+            { name: "startDate", in: "query", schema: { type: "string", format: "date", description: "YYYY-MM-DD" } },
+            { name: "endDate", in: "query", schema: { type: "string", format: "date", description: "YYYY-MM-DD" } }
+          ],
           responses: { "200": { description: "Successful response" } }
         }
       },
@@ -51,6 +56,32 @@ app.get('/api/openapi.json', (req, res) => {
           summary: "Get historical trends for a section",
           operationId: "getSectionHistory",
           parameters: [{ name: "sectionName", in: "query", required: true, schema: { type: "string" } }],
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/api/ai/search": {
+        get: {
+          summary: "Search for entries by any keyword (division, section, technician) or date range",
+          operationId: "searchEntries",
+          parameters: [
+            { name: "q", in: "query", schema: { type: "string", description: "Keywords like bsp, r, ngp, or names" } },
+            { name: "division", in: "query", schema: { type: "string" } },
+            { name: "technicianName", in: "query", schema: { type: "string" } },
+            { name: "condition", in: "query", schema: { type: "string", description: "Good, Fair, Poor, Critical" } },
+            { name: "startDate", in: "query", schema: { type: "string", format: "date" } },
+            { name: "endDate", in: "query", schema: { type: "string", format: "date" } },
+            { name: "limit", in: "query", schema: { type: "integer", description: "Max results to return (default 50, max 500)" } }
+          ],
+          responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/api/ai/active-users": {
+        get: {
+          summary: "Get a list of technicians who recently made entries, including their total entry count and last entry timestamp.",
+          operationId: "getActiveUsers",
+          parameters: [
+            { name: "days", in: "query", schema: { type: "integer", description: "Number of days to look back (default 7)" } }
+          ],
           responses: { "200": { description: "Successful response" } }
         }
       }
@@ -306,12 +337,64 @@ app.get('/api/stats', authorize, async (req, res) => {
 
 // --- AI SPECIFIC ENDPOINTS --- //
 
+// Helper to build queries with date, user, and abbreviation filters
+const buildAIQuery = (reqQuery) => {
+  const { q, division, technicianName, startDate, endDate, condition } = reqQuery;
+  let query = {};
+  
+  // Date filtering
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) query.createdAt.$gte = new Date(startDate);
+    if (endDate) {
+      let end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = end;
+    }
+  }
+
+  // Abbreviation mapping (bsp -> bilaspur, r -> raipur, ngp -> nagpur)
+  const parseKeyword = (kw) => {
+    if (!kw) return kw;
+    const lower = kw.toLowerCase().trim();
+    if (lower === 'bsp') return 'bilaspur';
+    if (lower === 'r') return 'raipur';
+    if (lower === 'ngp') return 'nagpur';
+    return kw;
+  };
+
+  if (division) {
+    const div = parseKeyword(division).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.divisionName = { $regex: new RegExp(div, 'i') };
+  }
+  
+  if (technicianName) {
+    const tech = technicianName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.technicianName = { $regex: new RegExp(tech, 'i') };
+  }
+
+  if (condition) {
+    // Condition is strict (Good, Fair, Poor, Critical)
+    query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+  }
+
+  if (q) {
+    const safeQ = parseKeyword(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.$or = [
+      { sectionName: { $regex: safeQ, $options: 'i' } },
+      { majorSectionName: { $regex: safeQ, $options: 'i' } },
+      { divisionName: { $regex: safeQ, $options: 'i' } },
+      { technicianName: { $regex: safeQ, $options: 'i' } }
+    ];
+  }
+
+  return query;
+};
+
 // GET AI Summary (Aggregated data for AI insight)
 app.get('/api/ai/summary', authorize, async (req, res) => {
   try {
-    const { division } = req.query;
-    let query = {};
-    if (division) query.divisionName = division;
+    const query = buildAIQuery(req.query);
 
     // Aggregate counts by condition
     const stats = await Entry.aggregate([
@@ -341,6 +424,7 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
     res.json({
       summary: stats,
       topFaultAreas: distribution.slice(0, 5), // Top 5 areas needing attention
+      filtersApplied: query,
       timestamp: new Date()
     });
   } catch (error) {
@@ -354,14 +438,88 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
     const { sectionName } = req.query;
     if (!sectionName) return res.status(400).json({ message: 'sectionName is required' });
 
+    const safeSection = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // Fetch last 5 readings for this section
-    const history = await Entry.find({ sectionName: { $regex: sectionName, $options: 'i' } })
+    const history = await Entry.find({ 
+      $or: [
+        { sectionName: { $regex: safeSection, $options: 'i' } },
+        { majorSectionName: { $regex: safeSection, $options: 'i' } }
+      ]
+    })
       .sort({ createdAt: -1 })
-      .limit(5)
-      .select('testDate condition quadReadings technicianName');
+      .limit(10)
+      .select('testDate condition quadReadings technicianName majorSectionName sectionName createdAt');
 
     res.json(history);
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET Search Entries
+app.get('/api/ai/search', authorize, async (req, res) => {
+  try {
+    const query = buildAIQuery(req.query);
+    const limit = parseInt(req.query.limit) || 50;
+    const finalLimit = Math.min(limit, 500); // Cap at 500 records to prevent memory crash
+    
+    // Safety check so we don't query the entire DB if it's completely empty
+    if (Object.keys(query).length === 0) {
+       return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
+    }
+
+    const entries = await Entry.find(query).limit(finalLimit).sort({ createdAt: -1 });
+
+    res.json({
+      count: entries.length,
+      limitApplied: finalLimit,
+      entries: entries
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET Active Users (Tracking who is making entries and when)
+app.get('/api/ai/active-users', authorize, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7; // Default to last 7 days
+    const dateLimit = new Date();
+    dateLimit.setDate(dateLimit.getDate() - days);
+
+    const activeUsers = await Entry.aggregate([
+      { $match: { createdAt: { $gte: dateLimit } } },
+      {
+        $group: {
+          _id: { 
+            technicianName: "$technicianName", 
+            divisionName: "$divisionName" 
+          },
+          totalEntries: { $sum: 1 },
+          lastEntryDate: { $max: "$createdAt" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          technicianName: "$_id.technicianName",
+          divisionName: "$_id.divisionName",
+          totalEntries: 1,
+          lastEntryDate: 1
+        }
+      },
+      { $sort: { lastEntryDate: -1 } }
+    ]);
+
+    res.json({
+      periodDays: days,
+      activeUserCount: activeUsers.length,
+      users: activeUsers
+    });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
