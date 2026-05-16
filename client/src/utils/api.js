@@ -34,3 +34,5 @@ export const getUsers = () => API.get('/users').then(r => r.data);
 export const createUser = (data) => API.post('/users', data).then(r => r.data);
 export const updateUser = (id, data) => API.put(`/users/${id}`, data).then(r => r.data);
 export const deleteUser = (id) => API.delete(`/users/${id}`).then(r => r.data);
+export const updateProfile = (data) => API.put('/users/profile', data).then(r => r.data);
+

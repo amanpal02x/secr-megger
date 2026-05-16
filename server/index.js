@@ -849,6 +849,55 @@ app.get('/api/auth/me', protect, async (req, res) => {
   res.json(req.user);
 });
 
+// Update current user details (Profile)
+app.put('/api/users/profile', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { name, phoneNumber, email, password } = req.body;
+
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+      user.email = email;
+    }
+
+    if (phoneNumber && phoneNumber !== user.phoneNumber) {
+      const phoneExists = await User.findOne({ phoneNumber });
+      if (phoneExists) {
+        return res.status(400).json({ message: 'Phone number already registered' });
+      }
+      user.phoneNumber = phoneNumber;
+    }
+
+    if (name !== undefined) user.name = name;
+
+    if (password) {
+      user.password = password;
+    }
+
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      division: user.division,
+      token: generateToken(user._id)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 // Admin: Get all users
 app.get('/api/users', protect, adminOnly, async (req, res) => {
   try {

@@ -131,6 +131,13 @@ export function AuthProvider({ children }) {
     setDbUser(null);
   };
 
+  const updateUserProfile = (userData) => {
+    setDbUser(prev => ({
+      ...prev,
+      ...userData
+    }));
+  };
+
   const value = {
     dbUser,
     token,
@@ -140,7 +147,8 @@ export function AuthProvider({ children }) {
     loginWithOtp,
     resetPassword,
     signup,
-    logout
+    logout,
+    updateUserProfile
   };
 
   return (
