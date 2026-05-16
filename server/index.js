@@ -30,30 +30,33 @@ setupMCP(app);
 // GET OpenAPI Spec (For ChatGPT Actions)
 app.get('/api/openapi.json', (req, res) => {
   res.json({
-    openapi: "3.0.0",
+    openapi: "3.1.0",
     info: {
       title: "SECR Megger AI API",
       version: "1.0.0",
       description: "API for querying SECR Cable Route Megger data."
     },
-    servers: [{ url: "https://your-backend.render.com" }],
+    servers: [{ url: "https://secr-megger.onrender.com" }],
     paths: {
       "/api/ai/summary": {
         get: {
           summary: "Get health summary",
+          operationId: "getHealthSummary",
           parameters: [{ name: "division", in: "query", schema: { type: "string" } }],
-          responses: { 200: { description: "Successful response" } }
+          responses: { "200": { description: "Successful response" } }
         }
       },
       "/api/ai/section-history": {
         get: {
           summary: "Get historical trends for a section",
+          operationId: "getSectionHistory",
           parameters: [{ name: "sectionName", in: "query", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "Successful response" } }
+          responses: { "200": { description: "Successful response" } }
         }
       }
     },
     components: {
+      schemas: {},
       securitySchemes: {
         ApiKeyAuth: { type: "apiKey", in: "header", name: "x-api-key" }
       }
