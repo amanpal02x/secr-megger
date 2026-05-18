@@ -42,8 +42,11 @@ const adminOnly = (req, res, next) => {
 
 const apiKeyAuth = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
-
+  console.log('[API KEY AUTH] Headers received:', Object.keys(req.headers));
+  console.log('[API KEY AUTH] x-api-key header present:', !!apiKey);
   if (apiKey) {
+    console.log('[API KEY AUTH] x-api-key value (masked):', apiKey.substring(0, 8) + '...');
+  }
     try {
       const user = await User.findOne({ apiKey }).select('-password');
 
