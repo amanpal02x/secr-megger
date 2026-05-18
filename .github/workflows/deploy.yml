@@ -54,6 +54,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Step 6.5: Sanitize secrets to prevent any copy-paste newline/formatting issues
+      - name: Sanitize Secrets
+        run: |
+          # Extract only the first line of MONGO_URI, and strip trailing return carriages or spaces
+          CLEAN_URI=$(echo "${{ secrets.MONGO_URI }}" | head -n 1 | tr -d '\r' | tr -d '\n')
+          echo "MONGO_URI=$CLEAN_URI" >> $GITHUB_ENV
+
+      # ----------------------------------------------------
+      # SERVER: BUILD, PUSH, AND DEPLOY
+      # ----------------------------------------------------
 
       # Step 7: Build and Push Server Container Image
       - name: Build and Push Server Image
@@ -67,7 +77,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 8: Deploy Server to Google Cloud Run (Using gcloud with custom | delimiter to safely parse commas)
+      # Step 8: Deploy Server to Google Cloud Run (Using env.MONGO_URI which is now guaranteed to be a single clean line)
       - name: Deploy Server to Cloud Run
         id: deploy-server
         run: |
@@ -75,7 +85,7 @@ jobs:
             --image="us-central1-docker.pkg.dev/logicboots-490514/secr-megger/server:${{ github.sha }}" \
             --region="us-central1" \
             --allow-unauthenticated \
-            --set-env-vars="^|^MONGO_URI=${{ secrets.MONGO_URI }}|JWT_SECRET=${{ secrets.JWT_SECRET }}|SMS_ENABLED=${{ secrets.SMS_ENABLED }}|SMS_UNICODE=${{ secrets.SMS_UNICODE }}|SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}|SMS_API_URL=${{ secrets.SMS_API_URL }}|SMS_USERNAME=${{ secrets.SMS_USERNAME }}|SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}|SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}|SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}"
+            --set-env-vars="^|^MONGO_URI=${{ env.MONGO_URI }}|JWT_SECRET=${{ secrets.JWT_SECRET }}|SMS_ENABLED=${{ secrets.SMS_ENABLED }}|SMS_UNICODE=${{ secrets.SMS_UNICODE }}|SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}|SMS_API_URL=${{ secrets.SMS_API_URL }}|SMS_USERNAME=${{ secrets.SMS_USERNAME }}|SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}|SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}|SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}"
           
           # Extract the deployed service URL and pass it to subsequent steps
           URL=$(gcloud run services describe secr-megger-server --region=us-central1 --format='value(status.url)')
