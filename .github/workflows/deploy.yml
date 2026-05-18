@@ -70,7 +70,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 8: Deploy Server to Google Cloud Run with GitHub Secrets injected
+      # Step 8: Deploy Server to Google Cloud Run with GitHub Secrets safely double-quoted
       - name: Deploy Server to Cloud Run
         id: deploy-server
         uses: google-github-actions/deploy-cloudrun@v2
@@ -80,16 +80,16 @@ jobs:
           region: 'us-central1'
           flags: '--allow-unauthenticated'
           env_vars: |
-            MONGO_URI=${{ secrets.MONGO_URI }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            SMS_ENABLED=${{ secrets.SMS_ENABLED }}
-            SMS_UNICODE=${{ secrets.SMS_UNICODE }}
-            SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}
-            SMS_API_URL=${{ secrets.SMS_API_URL }}
-            SMS_USERNAME=${{ secrets.SMS_USERNAME }}
-            SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}
-            SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}
-            SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}
+            MONGO_URI="${{ secrets.MONGO_URI }}"
+            JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            SMS_ENABLED="${{ secrets.SMS_ENABLED }}"
+            SMS_UNICODE="${{ secrets.SMS_UNICODE }}"
+            SMS_PRIORITY="${{ secrets.SMS_PRIORITY }}"
+            SMS_API_URL="${{ secrets.SMS_API_URL }}"
+            SMS_USERNAME="${{ secrets.SMS_USERNAME }}"
+            SMS_API_PASSWORD="${{ secrets.SMS_API_PASSWORD }}"
+            SMS_SENDER_ID="${{ secrets.SMS_SENDER_ID }}"
+            SMS_ENTITY_ID="${{ secrets.SMS_ENTITY_ID }}"
 
       # ----------------------------------------------------
       # CLIENT: BUILD, PUSH, AND DEPLOY
