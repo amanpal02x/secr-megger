@@ -1,0 +1,119 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+# Required permissions for Google Workload Identity Federation OIDC token exchange
+permissions:
+  contents: 'read'
+  id-token: 'write'
+
+jobs:
+  deploy:
+    name: Build & Deploy Server and Client
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Authenticate to Google Cloud using OIDC Workload Identity Federation
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: 'projects/81350131385/locations/global/workloadIdentityPools/github-pool-v2/providers/github-provider-v2'
+          service_account: 'github-deployer-v2@logicboots-490514.iam.gserviceaccount.com'
+
+      # Step 3: Set up Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Step 4: Create Artifact Registry Repository if it doesn't exist
+      - name: Create Artifact Registry Repository
+        run: |
+          gcloud artifacts repositories create secr-megger \
+            --repository-format=docker \
+            --location=us-central1 \
+            --description="Docker repository for SECR Megger v2" \
+            || true
+
+      # Step 5: Log in to Google Artifact Registry
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      # Step 6: Set up Docker Buildx (enables caching and optimization)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ----------------------------------------------------
+      # SERVER: BUILD, PUSH, AND DEPLOY
+      # ----------------------------------------------------
+
+      # Step 7: Build and Push Server Container Image
+      - name: Build and Push Server Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: |
+            us-central1-docker.pkg.dev/logicboots-490514/secr-megger/server:${{ github.sha }}
+            us-central1-docker.pkg.dev/logicboots-490514/secr-megger/server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 8: Deploy Server to Google Cloud Run with GitHub Secrets injected
+      - name: Deploy Server to Cloud Run
+        id: deploy-server
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: 'secr-megger-server'
+          image: 'us-central1-docker.pkg.dev/logicboots-490514/secr-megger/server:${{ github.sha }}'
+          region: 'us-central1'
+          flags: '--allow-unauthenticated'
+          env_vars: |
+            MONGO_URI=${{ secrets.MONGO_URI }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            SMS_ENABLED=${{ secrets.SMS_ENABLED }}
+            SMS_UNICODE=${{ secrets.SMS_UNICODE }}
+            SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}
+            SMS_API_URL=${{ secrets.SMS_API_URL }}
+            SMS_USERNAME=${{ secrets.SMS_USERNAME }}
+            SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}
+            SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}
+            SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}
+
+      # ----------------------------------------------------
+      # CLIENT: BUILD, PUSH, AND DEPLOY
+      # ----------------------------------------------------
+
+      # Step 9: Build and Push Client Container Image (passing Backend URL as build-arg)
+      - name: Build and Push Client Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          build-args: |
+            REACT_APP_API_URL=${{ steps.deploy-server.outputs.url }}
+          tags: |
+            us-central1-docker.pkg.dev/logicboots-490514/secr-megger/client:${{ github.sha }}
+            us-central1-docker.pkg.dev/logicboots-490514/secr-megger/client:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 10: Deploy Client to Google Cloud Run
+      - name: Deploy Client to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: 'secr-megger-client'
+          image: 'us-central1-docker.pkg.dev/logicboots-490514/secr-megger/client:${{ github.sha }}'
+          region: 'us-central1'
+          flags: '--allow-unauthenticated'

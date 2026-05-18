@@ -84,6 +84,17 @@ app.get('/api/openapi.json', (req, res) => {
           ],
           responses: { "200": { description: "Successful response" } }
         }
+      },
+      "/api/ai/users": {
+        get: {
+          summary: "Get registered user accounts count and details. Supports filtering by division and role.",
+          operationId: "getUsers",
+          parameters: [
+            { name: "division", in: "query", schema: { type: "string" }, description: "Division name or abbreviation (e.g. bsp, bilaspur, raipur)" },
+            { name: "role", in: "query", schema: { type: "string" }, description: "Filter by role (e.g. user, sub_admin, global_admin)" }
+          ],
+          responses: { "200": { description: "Successful response" } }
+        }
       }
     },
     components: {
@@ -598,6 +609,44 @@ app.get('/api/ai/active-users', authorize, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET Users count and details for AI (Supports AI API Key)
+app.get('/api/ai/users', authorize, async (req, res) => {
+  try {
+    const { division, role } = req.query;
+    let query = {};
+
+    const getSearchRegexes = (kw) => {
+      if (!kw) return [];
+      const lower = kw.toLowerCase().trim();
+      let terms = [];
+      if (lower === 'bsp' || lower === 'bilaspur') terms = ['bsp', 'bilaspur'];
+      else if (lower === 'r' || lower === 'raipur') terms = ['^r$', 'raipur'];
+      else if (lower === 'ngp' || lower === 'nagpur') terms = ['ngp', 'nagpur'];
+      else terms = [kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')];
+      
+      return terms.map(t => new RegExp(t, 'i'));
+    };
+
+    if (division) {
+      query.division = { $in: getSearchRegexes(division) };
+    }
+
+    if (role) {
+      query.role = role;
+    }
+
+    const users = await User.find(query).select('name email phoneNumber role division isActive createdAt');
+    
+    res.json({
+      count: users.length,
+      users: users
+    });
+  } catch (error) {
+    console.error('Error fetching users for AI:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
