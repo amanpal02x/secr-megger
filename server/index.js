@@ -593,7 +593,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
        return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
     }
 
-    const entries = await Entry.find(query).limit(finalLimit).sort({ createdAt: -1 });
+    const entries = await Entry.find(query).select('-attachment').limit(finalLimit).sort({ createdAt: -1 });
 
     res.json({
       count: entries.length,
