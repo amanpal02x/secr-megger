@@ -85,7 +85,7 @@ jobs:
             --image="us-central1-docker.pkg.dev/logicboots-490514/secr-megger/server:${{ github.sha }}" \
             --region="us-central1" \
             --allow-unauthenticated \
-            --set-env-vars="^|^MONGO_URI=${{ env.MONGO_URI }}|JWT_SECRET=${{ secrets.JWT_SECRET }}|SMS_ENABLED=${{ secrets.SMS_ENABLED }}|SMS_UNICODE=${{ secrets.SMS_UNICODE }}|SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}|SMS_API_URL=${{ secrets.SMS_API_URL }}|SMS_USERNAME=${{ secrets.SMS_USERNAME }}|SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}|SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}|SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}"
+            --set-env-vars="^|^MONGO_URI=$MONGO_URI|JWT_SECRET=${{ secrets.JWT_SECRET }}|SMS_ENABLED=${{ secrets.SMS_ENABLED }}|SMS_UNICODE=${{ secrets.SMS_UNICODE }}|SMS_PRIORITY=${{ secrets.SMS_PRIORITY }}|SMS_API_URL=${{ secrets.SMS_API_URL }}|SMS_USERNAME=${{ secrets.SMS_USERNAME }}|SMS_API_PASSWORD=${{ secrets.SMS_API_PASSWORD }}|SMS_SENDER_ID=${{ secrets.SMS_SENDER_ID }}|SMS_ENTITY_ID=${{ secrets.SMS_ENTITY_ID }}"
           
           # Extract the deployed service URL and pass it to subsequent steps
           URL=$(gcloud run services describe secr-megger-server --region=us-central1 --format='value(status.url)')
