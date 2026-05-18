@@ -1,5 +1,7 @@
-# Use Node.js 20 lightweight Alpine image
 FROM node:20-alpine
+
+# Install standard CA root certificates to allow secure TLS/SSL connections
+RUN apk add --no-cache ca-certificates
 
 # Set working directory
 WORKDIR /app
