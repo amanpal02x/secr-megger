@@ -3,4 +3,3 @@ build
 .env
 Dockerfile
 .dockerignore
-nginx.conf
