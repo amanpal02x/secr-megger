@@ -40,7 +40,7 @@ app.get('/api/openapi.json', (req, res) => {
       version: "1.0.0",
       description: "API for querying SECR Cable Route Megger data."
     },
-    servers: [{ url: "https://secr-megger.onrender.com" }],
+    servers: [{ url: `${req.protocol}://${req.get('host')}` }],
     paths: {
       "/api/ai/summary": {
         get: {
