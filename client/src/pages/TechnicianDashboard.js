@@ -33,7 +33,7 @@ export default function TechnicianDashboard({ setActivePage }) {
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen">
-      {/* Welcome Header */}
+      {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">Technician Workspace</h1>
@@ -50,10 +50,10 @@ export default function TechnicianDashboard({ setActivePage }) {
 
       <div className="p-4 md:p-8 grid grid-cols-12 gap-6 md:gap-8">
         
-        {/* Main Content - Quick Overview */}
+        {}
         <div className="col-span-12 space-y-8">
           
-          {/* Quick Stats Grid */}
+          {}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Total', value: stats.total, color: 'navy' },
@@ -75,7 +75,7 @@ export default function TechnicianDashboard({ setActivePage }) {
             ))}
           </div>
 
-          {/* Recent Records */}
+          {}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-navy-900">

@@ -3,10 +3,8 @@ const { SSEServerTransport } = require("@modelcontextprotocol/sdk/server/sse.js"
 const { CallToolRequestSchema, ListToolsRequestSchema } = require("@modelcontextprotocol/sdk/types.js");
 const Entry = require("./models/Entry");
 
-/**
- * SECR Megger MCP Server
- * Exposes database tools to Claude
- */
+
+
 const setupMCP = (app) => {
   const server = new Server(
     {

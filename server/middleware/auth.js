@@ -8,7 +8,6 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
 
-      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       const user = await User.findById(decoded.id).select('-password');
@@ -64,13 +63,10 @@ const apiKeyAuth = async (req, res, next) => {
       res.status(500).json({ message: 'Server Error during API Key verification' });
     }
   } else {
-    // If no API key, fall back to protect (JWT) logic or just fail
-    // For routes that allow both, we can use a wrapper.
     res.status(401).json({ message: 'Not authorized, no API key provided' });
   }
 };
 
-// Allows either JWT or API Key
 const authorize = async (req, res, next) => {
   if (req.headers['x-api-key']) {
     return apiKeyAuth(req, res, next);

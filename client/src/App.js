@@ -59,7 +59,7 @@ function MainApp() {
     setToast({ message, type });
   }, []);
 
-  // Close sidebar on page change (mobile)
+
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [page]);
@@ -86,7 +86,7 @@ function MainApp() {
 
   return (
     <div className="flex h-screen overflow-hidden font-sans bg-slate-100">
-      {/* Mobile Sidebar Overlay */}
+      {}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm z-40 lg:hidden"
@@ -94,7 +94,7 @@ function MainApp() {
         />
       )}
 
-      {/* Sidebar Wrapper */}
+      {}
       <div className={`
         fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -103,7 +103,7 @@ function MainApp() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Top Bar */}
+        {}
         <header className="lg:hidden bg-navy-900 text-white px-4 py-3 flex items-center justify-between shadow-md z-30">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gold-400">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -115,7 +115,7 @@ function MainApp() {
             <span className="w-px h-4 bg-navy-700"></span>
             <span className="text-[10px] uppercase tracking-widest text-slate-400 font-medium pt-0.5">Portal</span>
           </div>
-          <div className="w-8"></div> {/* Spacer for centering */}
+          <div className="w-8"></div> {}
         </header>
 
         <main className="flex-1 overflow-y-auto focus:outline-none bg-slate-100">

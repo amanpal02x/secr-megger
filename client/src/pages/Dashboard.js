@@ -62,7 +62,7 @@ export default function Dashboard({ setActivePage }) {
 
   const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser?.role);
 
-  // Filter entries based on selected stat card
+
   const filteredEntries = allEntries.filter(e => {
     if (activeFilter === 'total') return true;
     return e.condition?.toLowerCase() === activeFilter;
@@ -72,7 +72,7 @@ export default function Dashboard({ setActivePage }) {
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen">
-      {/* Page header */}
+      {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">Admin Dashboard</h1>
@@ -90,7 +90,7 @@ export default function Dashboard({ setActivePage }) {
       </div>
 
       <div className="p-4 md:p-8 space-y-6">
-        {/* Stat cards */}
+        {}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {statConfig.map((c, index) => (
             <div key={c.key} className={c.key === 'total' ? 'col-span-2 sm:col-span-3 lg:col-span-1' : ''}>
@@ -107,10 +107,10 @@ export default function Dashboard({ setActivePage }) {
           ))}
         </div>
 
-        {/* Main content */}
+        {}
         <div className="space-y-5 items-start">
 
-          {/* Recent entries table */}
+          {}
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
               <div className="flex items-center gap-2.5">

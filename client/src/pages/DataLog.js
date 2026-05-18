@@ -53,7 +53,7 @@ export default function DataLog({ showToast }) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Megger Data');
 
-    // Column widths for better look
+
     const wscols = [
       { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
       { wch: 12 }, { wch: 8 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
@@ -95,7 +95,7 @@ export default function DataLog({ showToast }) {
     const entry = entries.find(x => x.id === id);
     if (entry && !entry.isDetailLoaded) {
       try {
-        // Fetch full entry details (with the massive attachment) from backend on demand
+
         const fullDetails = await getEntry(id);
         setEntries(prev => prev.map(x => x.id === id ? { ...fullDetails, isDetailLoaded: true } : x));
       } catch (err) {
@@ -116,7 +116,7 @@ export default function DataLog({ showToast }) {
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
-      {/* Header */}
+      {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6">
         <div className="inline-flex items-center text-[10px] md:text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
           SECR / Signal &amp; Telecom
@@ -125,7 +125,7 @@ export default function DataLog({ showToast }) {
         <p className="text-xs md:text-sm text-slate-500 mt-0.5">{entries.length} register record{entries.length !== 1 ? 's' : ''} found</p>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
           <div className="relative flex-1">
@@ -180,7 +180,7 @@ export default function DataLog({ showToast }) {
         </div>
       </div>
 
-      {/* Table area */}
+      {}
       <div className="flex-1 p-4 md:p-8">
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           {loading ? (
@@ -254,7 +254,7 @@ export default function DataLog({ showToast }) {
                         </td>
                       </tr>
 
-                      {/* Expanded detail row */}
+                      {}
                       {expandedId === e.id && (
                         <tr className="border-b border-slate-200 bg-slate-50/50">
                           <td colSpan={headers.length} className="px-0 py-0">
@@ -265,11 +265,11 @@ export default function DataLog({ showToast }) {
                               </div>
                             ) : (
                               <div className="px-4 md:px-8 py-6">
-                                {/* Quad Table in detail - Scrollable or Stacked */}
+                                {}
                                 <div className="mb-6">
                                   <h4 className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-3">Quad Readings Summary</h4>
                                   
-                                  {/* Desktop/Tablet Table */}
+                                  {}
                                   <div className="hidden sm:block border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
                                     <table className="w-full text-[11px]">
                                       <thead>
@@ -299,7 +299,7 @@ export default function DataLog({ showToast }) {
                                     </table>
                                   </div>
 
-                                  {/* Mobile Cards for Quads */}
+                                  {}
                                   <div className="sm:hidden space-y-3">
                                     {e.quadReadings?.map(q => (
                                       <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
@@ -374,7 +374,7 @@ export default function DataLog({ showToast }) {
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
+      {}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/60 backdrop-blur-sm" onClick={() => setDeleteId(null)}>
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xl p-7 w-full max-w-sm mx-4 flex flex-col items-center text-center gap-4"

@@ -67,7 +67,7 @@ export default function Profile() {
       const updatedUser = await updateProfile(payload);
       updateUserProfile(updatedUser);
       
-      // Clear password fields
+
       setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
       setMessage({ text: 'Profile updated successfully!', type: 'success' });
     } catch (err) {
@@ -90,7 +90,7 @@ export default function Profile() {
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen">
-      {/* Top Banner Header */}
+      {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6">
         <div className="inline-flex items-center text-[10px] md:text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
           Account Settings
@@ -100,21 +100,21 @@ export default function Profile() {
       </div>
 
       <div className="p-4 md:p-8 max-w-3xl mx-auto">
-        {/* Unified Profile Card */}
+        {}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden transition-all duration-300">
           
-          {/* Card Header (Gradient & User Bio) */}
+          {}
           <div className="bg-gradient-to-r from-navy-900 to-indigo-950 px-6 py-8 sm:px-8 text-white flex flex-col sm:flex-row items-center gap-5 sm:gap-6 relative overflow-hidden">
-            {/* Dynamic background accents for premium feel */}
+            {}
             <div className="absolute right-0 top-0 w-40 h-40 bg-gold-400/5 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute left-1/3 bottom-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-            {/* Avatar */}
+            {}
             <div className={`relative w-20 h-20 rounded-full bg-gradient-to-br ${getAvatarGradient(dbUser?.name)} flex items-center justify-center text-white text-2xl font-bold shadow-lg ring-4 ring-white/10 select-none transform hover:scale-105 transition-transform duration-200`}>
               {getInitials(dbUser?.name || dbUser?.email)}
             </div>
 
-            {/* Info Stack */}
+            {}
             <div className="text-center sm:text-left space-y-1.5 flex-1 z-10">
               <h2 className="text-xl font-bold tracking-tight text-white">{dbUser?.name || 'Megger User'}</h2>
               <div className="text-xs text-slate-300 font-mono flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-3">
@@ -123,7 +123,7 @@ export default function Profile() {
                 <span className="font-sans font-medium">{dbUser?.phoneNumber}</span>
               </div>
               
-              {/* Pills */}
+              {}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-navy-900 bg-gold-400 px-2.5 py-0.5 rounded-full shadow-sm">
                   {roleLabels[dbUser?.role] || dbUser?.role}
@@ -137,7 +137,7 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Card Body (Form) */}
+          {}
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
             
             {message.text && (
@@ -151,7 +151,7 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Personal Details Section */}
+            {}
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-2">
                 <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">Personal Details</h3>
@@ -203,7 +203,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Security Section */}
+            {}
             <div className="space-y-4 pt-2">
               <div className="border-b border-slate-100 pb-2">
                 <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">Security &amp; Password</h3>
@@ -240,7 +240,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Submit Action */}
+            {}
             <div className="border-t border-slate-100 pt-5 flex justify-end">
               <button
                 type="submit"

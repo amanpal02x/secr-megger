@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Disable Mongoose command buffering globally to prevent queries from hanging forever during database offline/DNS lookup lags
+
     mongoose.set('bufferCommands', false);
 
     let dbUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/secr-megger';
 
-    // Auto-optimize legacy replica-set URIs to modern serverless-friendly mongodb+srv:// URIs
+
     if (dbUri && dbUri.startsWith('mongodb://') && dbUri.includes('.mongodb.net')) {
       try {
         const urlPattern = /^mongodb:\/\/([^:]+):([^@]+)@([^/]+)\/(.+)$/;
@@ -33,12 +33,12 @@ const connectDB = async () => {
     }
 
     const conn = await mongoose.connect(dbUri, {
-      serverSelectionTimeoutMS: 30000, // Allow up to 30 seconds for cross-region serverless cold-starts
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
     });
     console.log(`✅ SUCCESS: MongoDB Connected to: ${conn.connection.host}`);
     
-    // Auto-migrate legacy admins
+
     try {
       const User = require('../models/User');
       const res = await User.updateMany({ role: 'admin' }, { $set: { role: 'global_admin' } });

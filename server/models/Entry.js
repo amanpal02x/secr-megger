@@ -36,7 +36,7 @@ const entrySchema = new mongoose.Schema({
   supervisorName: String,
   testDate: String,
   condition: String,
-  attachment: String, // Base64 encoded file or image
+  attachment: String,
   createdAt: {
     type: Date,
     default: Date.now,

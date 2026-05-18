@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
             const data = await response.json();
             setDbUser(data);
           } else {
-            // Token invalid or expired
+
             logout();
           }
         } catch (error) {
@@ -122,7 +122,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (email, password, phoneNumber) => {
-    // ... signup logic ...
+
   };
 
   const logout = () => {

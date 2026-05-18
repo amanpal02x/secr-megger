@@ -124,7 +124,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 md:p-8 w-full">
             
-            {/* Header with Add Button */}
+            {}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xl font-bold text-navy-900">Add User</h3>
@@ -139,7 +139,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
               </button>
             </div>
 
-            {/* Modal-style Overlay for Form */}
+            {}
             {showForm && (
               <div className="fixed inset-0 bg-navy-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-300">
@@ -201,7 +201,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
               </div>
             )}
 
-            {/* Users List - Full Width */}
+            {}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
                 <h3 className="text-xs font-black text-navy-900 uppercase tracking-[0.2em]">Authorized Personnel Database</h3>

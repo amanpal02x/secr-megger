@@ -28,7 +28,6 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Initialize Claude MCP
 setupMCP(app);
 
 // GET OpenAPI Spec (For ChatGPT Actions)
@@ -142,7 +141,6 @@ app.get('/privacy', (req, res) => {
   `);
 });
 
-// Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',
@@ -150,7 +148,6 @@ const generateToken = (id) => {
 };
 
 // Locations are now fetched from the database. 
-// Use /api/locations/bulk to populate them.
 
 // GET dropdown data
 app.get('/api/divisions', async (req, res) => {
@@ -188,7 +185,7 @@ app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
     const locations = req.body;
     if (!Array.isArray(locations)) return res.status(400).json({ error: 'Array expected' });
     
-    // Optional: Clear existing locations before bulk upload
+
     await Location.deleteMany({});
     
     await Location.insertMany(locations.map(l => ({
@@ -210,7 +207,7 @@ app.get('/api/entries', authorize, async (req, res) => {
     let query = {};
     if (division) query.divisionId = division;
     
-    // Scoping rules based on role
+
     if (req.user.role === 'user') {
       query.userId = req.user._id;
     } else if (req.user.role === 'sub_admin') {
@@ -223,7 +220,7 @@ app.get('/api/entries', authorize, async (req, res) => {
       query.createdAt = { $gte: startDate };
     }
     
-    // Project to exclude massive base64 attachment field by default for instant loads
+
     let entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 });
 
     if (search) {
@@ -282,7 +279,7 @@ app.post('/api/entries', protect, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields (including attachment)' });
     }
 
-    // Calculate overall condition
+
     let worstCondition = 'Good';
     if (quadReadings && Array.isArray(quadReadings)) {
       quadReadings.forEach(q => {
@@ -439,7 +436,7 @@ app.get('/api/stats', authorize, async (req, res) => {
       query.divisionName = req.user.division;
     }
 
-    // Execute all 5 count queries in parallel to drastically improve performance
+
     const [total, good, fair, poor, critical] = await Promise.all([
       Entry.countDocuments(query),
       Entry.countDocuments({ ...query, condition: 'Good' }),
@@ -462,7 +459,7 @@ const buildAIQuery = (reqQuery) => {
   const { q, division, technicianName, startDate, endDate, condition } = reqQuery;
   let query = {};
   
-  // Date filtering
+
   if (startDate || endDate) {
     query.createdAt = {};
     if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -473,13 +470,13 @@ const buildAIQuery = (reqQuery) => {
     }
   }
 
-  // Returns array of Regexes to match both abbreviations and full names
+
   const getSearchRegexes = (kw) => {
     if (!kw) return [];
     const lower = kw.toLowerCase().trim();
     let terms = [];
     if (lower === 'bsp' || lower === 'bilaspur') terms = ['bsp', 'bilaspur'];
-    else if (lower === 'r' || lower === 'raipur') terms = ['^r$', 'raipur']; // ^r$ prevents matching every 'r'
+    else if (lower === 'r' || lower === 'raipur') terms = ['^r$', 'raipur'];
     else if (lower === 'ngp' || lower === 'nagpur') terms = ['ngp', 'nagpur'];
     else terms = [kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')];
     
@@ -496,7 +493,7 @@ const buildAIQuery = (reqQuery) => {
   }
 
   if (condition) {
-    // Condition is strict (Good, Fair, Poor, Critical)
+
     query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
   }
 
@@ -520,7 +517,7 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
 
-    // Aggregate counts by condition
+
     const stats = await Entry.aggregate([
       { $match: query },
       {
@@ -531,7 +528,7 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
       }
     ]);
 
-    // Aggregate by major section for distribution
+
     const distribution = await Entry.aggregate([
       { $match: query },
       {
@@ -547,7 +544,7 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
 
     res.json({
       summary: stats,
-      topFaultAreas: distribution.slice(0, 5), // Top 5 areas needing attention
+      topFaultAreas: distribution.slice(0, 5),
       filtersApplied: query,
       timestamp: new Date()
     });
@@ -564,7 +561,7 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
 
     const safeSection = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Fetch last 5 readings for this section
+
     const history = await Entry.find({ 
       $or: [
         { sectionName: { $regex: safeSection, $options: 'i' } },
@@ -586,9 +583,9 @@ app.get('/api/ai/search', authorize, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
     const limit = parseInt(req.query.limit) || 50;
-    const finalLimit = Math.min(limit, 500); // Cap at 500 records to prevent memory crash
+    const finalLimit = Math.min(limit, 500);
     
-    // Safety check so we don't query the entire DB if it's completely empty
+
     if (Object.keys(query).length === 0) {
        return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
     }
@@ -609,7 +606,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
 // GET Active Users (Tracking who is making entries and when)
 app.get('/api/ai/active-users', authorize, async (req, res) => {
   try {
-    const days = parseInt(req.query.days) || 7; // Default to last 7 days
+    const days = parseInt(req.query.days) || 7;
     const dateLimit = new Date();
     dateLimit.setDate(dateLimit.getDate() - days);
 
@@ -690,7 +687,7 @@ app.get('/api/ai/users', authorize, async (req, res) => {
 const sendSMS = async (phone, message, templateId) => {
   if (process.env.SMS_ENABLED !== 'true') {
     console.log('SMS is disabled. Message:', message);
-    // Write to file for local testing in the server directory
+
     try {
       const logPath = path.join(__dirname, 'last_otp.txt');
       const logEntry = `[${new Date().toLocaleString()}] To: ${phone} | Template: ${templateId}\nMessage: ${message}\n\n`;
@@ -732,7 +729,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) return res.status(400).json({ message: 'Phone number required' });
 
-    // Reviewer Bypass
+
     if (phoneNumber === '9667765039') {
       return res.json({ message: 'OTP sent successfully' });
     }
@@ -740,9 +737,9 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const user = await User.findOne({ phoneNumber });
     if (!user) return res.status(404).json({ message: 'Personnel not registered with this number' });
 
-    // Generate 6-digit OTP
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+    const expires = new Date(Date.now() + 5 * 60 * 1000);
 
     user.otp = otp;
     user.otpExpires = expires;
@@ -769,7 +766,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     const { phoneNumber, otp } = req.body;
     if (!phoneNumber || !otp) return res.status(400).json({ message: 'Phone and OTP required' });
 
-    // Reviewer Bypass
+
     if (phoneNumber === '9667765039' && otp === '120000') {
       let user = await User.findOne({ phoneNumber });
       if (!user) {
@@ -831,11 +828,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // Reset OTP
+
     user.otp = undefined;
     user.otpExpires = undefined;
     
-    // Update password (pre-save hook will hash it)
+
     user.password = newPassword;
     await user.save();
 
@@ -849,7 +846,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    // If database is not fully connected, wait up to 10 seconds for the connection to establish (crucial for serverless cold-starts)
+
     if (mongoose.connection.readyState !== 1) {
       console.log(`⏳ Database connection is in state ${mongoose.connection.readyState}. Awaiting connection event...`);
       await new Promise((resolve) => {
@@ -908,13 +905,13 @@ app.post('/api/auth/register', async (req, res) => {
     const userCount = await User.countDocuments();
     let role = 'user';
     
-    // If no users exist, the first one is an admin
+
     if (userCount === 0) {
       role = 'admin';
     } else {
-      // Only admins can register new users via this endpoint if users already exist
-      // Or we can just disable this for production and rely on Admin Portal
-      // For now, let's allow it only if userCount is 0 to prevent unauthorized registrations
+
+
+
       return res.status(403).json({ message: 'Registration disabled. Use Admin Portal to add users.' });
     }
 
@@ -957,7 +954,6 @@ app.get('/api/auth/me', protect, async (req, res) => {
   res.json(req.user);
 });
 
-// Update current user details (Profile)
 app.put('/api/users/profile', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -1026,8 +1022,8 @@ app.post('/api/users', protect, adminOnly, async (req, res) => {
     let { name, phoneNumber, email, password, role, division } = req.body;
     
     if (req.user.role === 'sub_admin') {
-      role = 'user'; // Sub admins can only create users
-      division = req.user.division; // Force division
+      role = 'user';
+      division = req.user.division;
     }
 
     if (!email || !password) {
@@ -1083,8 +1079,8 @@ app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
 
     if (req.user.role === 'sub_admin') {
       if (user.division !== req.user.division) return res.status(403).json({ message: 'Unauthorized to edit this user' });
-      role = user.role; // cannot change role
-      division = user.division; // cannot change division
+      role = user.role;
+      division = user.division;
     }
 
     if (name) user.name = name;
@@ -1093,7 +1089,7 @@ app.put('/api/users/:id', protect, adminOnly, async (req, res) => {
     if (role) user.role = role;
     if (division !== undefined) user.division = division;
     if (isActive !== undefined) user.isActive = isActive;
-    if (password) user.password = password; // pre-save hook will hash it
+    if (password) user.password = password;
 
     await user.save();
     res.json(user);
@@ -1126,7 +1122,6 @@ app.delete('/api/users/:id', protect, adminOnly, async (req, res) => {
 });
 
 // --- ADMIN: API KEY MANAGEMENT --- //
-// Generate/Update API Key for a user (Admin Only)
 app.post('/api/admin/generate-api-key', protect, adminOnly, async (req, res) => {
   try {
     const { userId } = req.body;

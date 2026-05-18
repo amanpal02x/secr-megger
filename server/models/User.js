@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['global_admin', 'sub_admin', 'user', 'admin'], // keep 'admin' temporarily to avoid validation errors during migration
+    enum: ['global_admin', 'sub_admin', 'user', 'admin'],
     default: 'user',
   },
   division: {
@@ -43,7 +43,6 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Hash password before saving
 userSchema.pre('save', async function () {
   if (!this.isModified('password') || !this.password) {
     return;
@@ -52,7 +51,6 @@ userSchema.pre('save', async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

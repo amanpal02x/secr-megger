@@ -21,7 +21,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
   return (
     <aside className="w-64 max-w-[85vw] lg:w-60 bg-navy-900 flex flex-col h-screen sticky top-0 border-r border-navy-700 shadow-2xl lg:shadow-none">
 
-      {/* Brand & Close */}
+      {}
       <div className="flex items-center justify-between px-5 py-5 lg:py-6">
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0">
@@ -42,7 +42,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
           </div>
         </div>
 
-        {/* Close button - only visible on mobile */}
+        {}
         <button 
           onClick={onClose}
           className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
@@ -55,7 +55,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
 
       <div className="mx-4 border-t border-navy-700/50" />
 
-      {/* Nav */}
+      {}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
         <p className="text-[10px] uppercase tracking-widest text-slate-600 px-3 mb-2 font-medium">Main Menu</p>
 
@@ -132,9 +132,9 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
         )}
       </nav>
 
-      {/* Footer */}
+      {}
       <div className="border-t border-navy-700 p-3 space-y-2.5">
-        {/* Clickable Profile Card */}
+        {}
         <div 
           onClick={() => setActivePage('profile')}
           className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border select-none group
@@ -143,7 +143,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
               : 'hover:bg-navy-950/60 border-transparent hover:border-navy-800/50'
             }`}
         >
-          {/* Avatar */}
+          {}
           <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${
             (() => {
               const name = dbUser?.name;
@@ -162,7 +162,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
             })(dbUser?.name || dbUser?.email)}
           </div>
           
-          {/* Info */}
+          {}
           <div className="flex-1 min-w-0">
             <div className="text-xs font-bold text-slate-200 truncate group-hover:text-gold-400 transition-colors">
               {dbUser?.name || 'Megger User'}
@@ -172,14 +172,14 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
             </div>
           </div>
 
-          {/* Settings Icon */}
+          {}
           <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </div>
 
-        {/* Logout Button */}
+        {}
         <button 
           onClick={logout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold text-red-400 hover:bg-red-950/30 transition-all border border-transparent hover:border-red-900/50"

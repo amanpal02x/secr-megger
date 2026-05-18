@@ -16,7 +16,7 @@ export default function Login() {
   const [view, setView] = useState('login');
   const [newPassword, setNewPassword] = useState('');
 
-  // Clear fields when switching between Technician and Admin
+
   React.useEffect(() => {
     setEmail('');
     setPassword('');
@@ -80,14 +80,14 @@ export default function Login() {
       }
 
       if (result.success) {
-        // Enforce role check
+
         const userRole = result.user.role;
         const isAuthorized = loginMode === 'admin' 
           ? ['admin', 'global_admin', 'sub_admin'].includes(userRole)
           : userRole === 'user';
 
         if (!isAuthorized) {
-          logout(); // Force logout if role doesn't match intent
+          logout();
           setError(`This account does not have ${loginMode === 'admin' ? 'Administrative' : 'Technician'} privileges.`);
           setOtpSent(false);
         }
@@ -127,7 +127,7 @@ export default function Login() {
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
 
-        {/* Toggle Switch */}
+        {}
         <div className="flex p-1 bg-slate-100 m-6 mb-0 rounded-xl border border-slate-200">
           <button
             onClick={() => { setLoginMode('user'); setError(''); }}
@@ -143,7 +143,7 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Header Content */}
+        {}
         <div className="px-8 pt-8 pb-6 text-center">
           <div className="flex justify-center mb-4">
             <div className={`p-3 rounded-2xl transition-colors duration-500 ${isAdmin ? 'bg-red-50 text-red-600' : 'bg-gold-50 text-gold-600'}`}>
@@ -162,7 +162,7 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Form Body */}
+        {}
         <div className="px-8 pb-8">
           {view === 'forgot' ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -267,7 +267,7 @@ export default function Login() {
             </form>
           ) : (
             <div className="space-y-6">
-              {/* Technician Sub-mode Toggle */}
+              {}
               <div className="flex justify-center -mt-2">
                 <div className="inline-flex p-1 bg-slate-50 border border-slate-100 rounded-xl shadow-inner">
                   <button 
@@ -391,7 +391,7 @@ export default function Login() {
 
       </div>
 
-      {/* Visual Indicator of Railway Zone */}
+      {}
       <div className="mt-8 flex items-center gap-3 opacity-30 grayscale hover:grayscale-0 transition-all duration-700">
         <div className="w-px h-6 bg-slate-300"></div>
         <div className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Maintenance Register</div>
