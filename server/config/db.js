@@ -5,8 +5,35 @@ const connectDB = async () => {
     // Disable Mongoose command buffering globally to prevent queries from hanging forever during database offline/DNS lookup lags
     mongoose.set('bufferCommands', false);
 
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/secr-megger', {
-      serverSelectionTimeoutMS: 5000, // Fail fast (5 seconds) instead of waiting for default 30 seconds
+    let dbUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/secr-megger';
+
+    // Auto-optimize legacy replica-set URIs to modern serverless-friendly mongodb+srv:// URIs
+    if (dbUri && dbUri.startsWith('mongodb://') && dbUri.includes('.mongodb.net')) {
+      try {
+        const urlPattern = /^mongodb:\/\/([^:]+):([^@]+)@([^/]+)\/(.+)$/;
+        const match = dbUri.match(urlPattern);
+        if (match) {
+          const username = match[1];
+          const password = match[2];
+          const hosts = match[3].split(',');
+          const dbAndParams = match[4];
+          
+          const firstHost = hosts[0].split(':')[0];
+          const domainParts = firstHost.split('.');
+          if (domainParts.length >= 3) {
+            const baseDomain = domainParts.slice(-3).join('.');
+            const srvUri = `mongodb+srv://${username}:${password}@${baseDomain}/${dbAndParams}`;
+            console.log('⚡ Auto-optimized legacy replica-set MONGO_URI to serverless SRV format.');
+            dbUri = srvUri;
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to auto-optimize MONGO_URI, connecting with original:', err.message);
+      }
+    }
+
+    const conn = await mongoose.connect(dbUri, {
+      serverSelectionTimeoutMS: 8000, // Fail fast but allow 8 seconds for serverless cold-starts
       socketTimeoutMS: 45000,
     });
     console.log(`✅ SUCCESS: MongoDB Connected to: ${conn.connection.host}`);
