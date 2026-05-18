@@ -517,7 +517,6 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
 
-
     const stats = await Entry.aggregate([
       { $match: query },
       {
@@ -527,7 +526,6 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
         }
       }
     ]);
-
 
     const distribution = await Entry.aggregate([
       { $match: query },
@@ -542,9 +540,23 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
       { $sort: { critical: -1, poor: -1 } }
     ]);
 
+    const byDivision = await Entry.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$divisionName",
+          total: { $sum: 1 },
+          critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
+          poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+
     res.json({
       summary: stats,
       topFaultAreas: distribution.slice(0, 5),
+      byDivision: byDivision,
       filtersApplied: query,
       timestamp: new Date()
     });
