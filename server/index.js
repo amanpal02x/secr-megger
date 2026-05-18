@@ -818,7 +818,31 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    // Check if database is connected
+    // If database is not fully connected, wait up to 10 seconds for the connection to establish (crucial for serverless cold-starts)
+    if (mongoose.connection.readyState !== 1) {
+      console.log(`⏳ Database connection is in state ${mongoose.connection.readyState}. Awaiting connection event...`);
+      await new Promise((resolve) => {
+        if (mongoose.connection.readyState === 1) return resolve();
+        
+        const timeout = setTimeout(() => {
+          console.warn('⚠️ Connection await timed out after 10 seconds.');
+          resolve();
+        }, 10000);
+        
+        mongoose.connection.once('connected', () => {
+          clearTimeout(timeout);
+          console.log('✅ Database connected successfully during active request wait.');
+          resolve();
+        });
+        
+        mongoose.connection.once('error', (err) => {
+          clearTimeout(timeout);
+          console.error('❌ Database connection failed during active request wait:', err.message);
+          resolve();
+        });
+      });
+    }
+
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ message: 'Database Connection Failed. Check Atlas IP Whitelist.' });
     }
