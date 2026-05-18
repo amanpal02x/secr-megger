@@ -111,6 +111,37 @@ app.get('/api/openapi.json', (req, res) => {
   });
 });
 
+// GET Privacy Policy (Required for custom ChatGPT Actions publishing)
+app.get('/privacy', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Privacy Policy - SECR Megger AI</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; color: #2d3748; background-color: #f7fafc;">
+        <div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+          <h1 style="color: #1a202c; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-top: 0;">Privacy Policy</h1>
+          <p style="color: #718096; font-size: 0.9em;"><strong>Effective Date: May 19, 2026</strong></p>
+          <p>This Privacy Policy describes how the SECR Megger AI API ("we", "our", "us") handles data for the Megger AI Custom GPT ("the GPT").</p>
+          
+          <h2 style="color: #2d3748; font-size: 1.3em; margin-top: 24px;">1. Information Collection & Processing</h2>
+          <p>The GPT accesses our API solely to query and analyze cable route megger and insulation resistance data from the SECR database. We do not collect, store, or process any personal identification information (PII) of individuals using this Custom GPT.</p>
+          
+          <h2 style="color: #2d3748; font-size: 1.3em; margin-top: 24px;">2. Data Storage & Sharing</h2>
+          <p>All database queries are executed in real-time. No chat transcripts, query parameters, or personal data from your ChatGPT sessions are stored on our servers or shared with any third parties.</p>
+          
+          <h2 style="color: #2d3748; font-size: 1.3em; margin-top: 24px;">3. Security</h2>
+          <p>We implement robust, industry-standard TLS (HTTPS) encryption to ensure that all data transmitted between ChatGPT and our backend API remains secure and protected from unauthorized access.</p>
+          
+          <h2 style="color: #2d3748; font-size: 1.3em; margin-top: 24px;">4. Contact & Inquiries</h2>
+          <p>If you have any security or privacy questions regarding this service, please contact your division's SECR System Administrator.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
