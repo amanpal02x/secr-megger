@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
 
-    mongoose.set('bufferCommands', false);
+    mongoose.set('bufferCommands', true);
 
     let dbUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/secr-megger';
 

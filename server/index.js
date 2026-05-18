@@ -22,7 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Connect to Database
-connectDB();
+// We connect to DB and start the server asynchronously in the startServer function below
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -1150,6 +1150,11 @@ app.post('/api/admin/generate-api-key', protect, adminOnly, async (req, res) => 
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`SECR Megger Server running on http://localhost:${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`SECR Megger Server running on http://localhost:${PORT}`);
+  });
+};
+
+startServer();
