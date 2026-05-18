@@ -33,7 +33,7 @@ const connectDB = async () => {
     }
 
     const conn = await mongoose.connect(dbUri, {
-      serverSelectionTimeoutMS: 8000, // Fail fast but allow 8 seconds for serverless cold-starts
+      serverSelectionTimeoutMS: 30000, // Allow up to 30 seconds for cross-region serverless cold-starts
       socketTimeoutMS: 45000,
     });
     console.log(`✅ SUCCESS: MongoDB Connected to: ${conn.connection.host}`);
