@@ -60,6 +60,7 @@ const apiKeyAuth = async (req, res, next) => {
       req.user = user;
       next();
     } catch (error) {
+      console.error('[API KEY AUTH] Verification Error:', error);
       res.status(500).json({ message: 'Server Error during API Key verification' });
     }
   } else {
