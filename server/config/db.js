@@ -32,6 +32,39 @@ const connectDB = async () => {
       }
     }
 
+    // Perform raw TLS diagnostics on boot to pinpoint root cause of connection closures
+    try {
+      const tls = require('tls');
+      const dns = require('dns');
+      const diagHost = 'ac-s4x4fjx-shard-00-01.eivnsxz.mongodb.net';
+      const diagPort = 27017;
+      console.log(`🔍 [BOOT DIAGNOSTICS] Testing raw TLS connection to ${diagHost}...`);
+      
+      dns.lookup(diagHost, (dnsErr, address) => {
+        if (dnsErr) {
+          console.error('❌ [BOOT DIAGNOSTICS] DNS Lookup failed:', dnsErr.message);
+          return;
+        }
+        console.log(`✅ [BOOT DIAGNOSTICS] DNS Resolved to: ${address}`);
+        
+        const socket = tls.connect({
+          host: diagHost,
+          port: diagPort,
+          servername: diagHost,
+          rejectUnauthorized: true
+        }, () => {
+          console.log(`✅ [BOOT DIAGNOSTICS] Raw TLS Connection to ${diagHost} succeeded!`);
+          socket.destroy();
+        });
+        
+        socket.on('error', (tlsErr) => {
+          console.error(`❌ [BOOT DIAGNOSTICS] Raw TLS Connection failed: ${tlsErr.message} (Code: ${tlsErr.code})`);
+        });
+      });
+    } catch (diagErr) {
+      console.error('⚠️ [BOOT DIAGNOSTICS] Setup failed:', diagErr.message);
+    }
+
     const conn = await mongoose.connect(dbUri, {
       serverSelectionTimeoutMS: 30000, // Allow up to 30 seconds for cross-region serverless cold-starts
       socketTimeoutMS: 45000,
