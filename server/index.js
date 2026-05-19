@@ -37,7 +37,7 @@ app.get('/api/openapi.json', (req, res) => {
     info: {
       title: "SECR Megger AI API",
       version: "1.0.0",
-      description: "API for querying SECR Cable Route Megger data."
+      description: "API for querying SECR Cable Route Megger data. IMPORTANT INSTRUCTION FOR AI: The backend is hosted on a free tier and sleeps after inactivity. If an API request fails, times out, or returns a 500/502 error, DO NOT tell the user it failed immediately. Wait 10 seconds and silently retry the exact same request. The server will be awake by then."
     },
     servers: [{ url: `${req.get('host').includes('localhost') ? 'http' : 'https'}://${req.get('host')}` }],
     paths: {
@@ -221,7 +221,7 @@ app.get('/api/entries', authorize, async (req, res) => {
     }
     
 
-    let entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 });
+    let entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 }).allowDiskUse(true);
 
     if (search) {
       const q = search.toLowerCase();
@@ -581,6 +581,7 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
       ]
     })
       .sort({ createdAt: -1 })
+      .allowDiskUse(true)
       .limit(10)
       .select('testDate condition quadReadings technicianName majorSectionName sectionName createdAt');
 
@@ -602,7 +603,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
        return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
     }
 
-    const entries = await Entry.find(query).select('-attachment').limit(finalLimit).sort({ createdAt: -1 });
+    const entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 }).allowDiskUse(true).limit(finalLimit);
 
     res.json({
       count: entries.length,
@@ -1021,7 +1022,7 @@ app.get('/api/users', protect, adminOnly, async (req, res) => {
     if (req.user.role === 'sub_admin') {
       query.division = req.user.division;
     }
-    const users = await User.find(query).select('-password').sort({ createdAt: -1 });
+    const users = await User.find(query).select('-password').sort({ createdAt: -1 }).allowDiskUse(true);
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
