@@ -200,6 +200,61 @@ app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
   }
 });
 
+// GET all locations (Admin only)
+app.get('/api/locations', protect, adminOnly, async (req, res) => {
+  try {
+    const locations = await Location.find({}).sort({ division: 1, majorSection: 1, section: 1 }).allowDiskUse(true);
+    res.json(locations);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching locations' });
+  }
+});
+
+// POST single location (Admin only)
+app.post('/api/locations', protect, adminOnly, async (req, res) => {
+  try {
+    const { division, majorSection, section } = req.body;
+    if (!division || !majorSection || !section) {
+      return res.status(400).json({ message: 'Missing required fields: division, majorSection, section' });
+    }
+    const newLocation = await Location.create({ division, majorSection, section });
+    res.status(201).json(newLocation);
+  } catch (err) {
+    res.status(500).json({ message: 'Error creating location' });
+  }
+});
+
+// PUT single location (Admin only)
+app.put('/api/locations/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const { division, majorSection, section } = req.body;
+    const location = await Location.findById(req.params.id);
+    if (!location) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+    if (division !== undefined) location.division = division;
+    if (majorSection !== undefined) location.majorSection = majorSection;
+    if (section !== undefined) location.section = section;
+    await location.save();
+    res.json(location);
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating location' });
+  }
+});
+
+// DELETE single location (Admin only)
+app.delete('/api/locations/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const location = await Location.findByIdAndDelete(req.params.id);
+    if (!location) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+    res.json({ message: 'Location deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting location' });
+  }
+});
+
 // GET all entries (Supports AI API Key)
 app.get('/api/entries', authorize, async (req, res) => {
   try {

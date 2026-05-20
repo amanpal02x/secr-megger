@@ -35,3 +35,9 @@ export const updateUser = (id, data) => API.put(`/users/${id}`, data).then(r => 
 export const deleteUser = (id) => API.delete(`/users/${id}`).then(r => r.data);
 export const updateProfile = (data) => API.put('/users/profile', data).then(r => r.data);
 
+export const getLocations = () => API.get('/locations').then(r => r.data);
+export const createLocation = (data) => API.post('/locations', data).then(r => r.data);
+export const updateLocation = (id, data) => API.put(`/locations/${id}`, data).then(r => r.data);
+export const deleteLocation = (id) => API.delete(`/locations/${id}`).then(r => r.data);
+
+

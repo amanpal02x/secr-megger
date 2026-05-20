@@ -9,6 +9,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import TechnicianDashboard from './pages/TechnicianDashboard';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import Locations from './pages/Locations';
+
 
 function MainApp() {
   const { dbUser, loading } = useAuth();
@@ -79,6 +81,7 @@ function MainApp() {
       case 'entry':     return <EntryForm setActivePage={handleSetPage} showToast={showToast} />;
       case 'log':       return <DataLog showToast={showToast} />;
       case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      case 'locations': return ['admin', 'global_admin'].includes(dbUser.role) ? <Locations showToast={showToast} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
       case 'profile':   return <Profile />;
       default:          return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
     }
