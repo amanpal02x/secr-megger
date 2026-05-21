@@ -51,6 +51,11 @@ entrySchema.virtual('submittedByPhone').get(function() {
   return this.userId && this.userId.phoneNumber ? this.userId.phoneNumber : undefined;
 });
 
+entrySchema.virtual('attachmentUrl').get(function() {
+  if (this.attachment === "") return undefined;
+  return `/api/entries/${this.id}/attachment`;
+});
+
 entrySchema.set('toJSON', {
   virtuals: true,
   transform: function (doc, ret) {

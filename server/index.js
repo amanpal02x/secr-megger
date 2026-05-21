@@ -313,6 +313,34 @@ app.get('/api/entries/:id', protect, async (req, res) => {
   }
 });
 
+// GET entry attachment image/file (Public for chat rendering)
+app.get('/api/entries/:id/attachment', async (req, res) => {
+  try {
+    const entry = await Entry.findOne({ id: req.params.id }).select('attachment');
+    if (!entry || !entry.attachment) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    const matches = entry.attachment.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).send('Invalid attachment format');
+    }
+
+    const contentType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': buffer.length,
+      'Cache-Control': 'public, max-age=86400'
+    });
+    res.end(buffer);
+  } catch (error) {
+    console.error('Error serving attachment:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
 // POST new entry
 app.post('/api/entries', protect, async (req, res) => {
   try {
