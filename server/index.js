@@ -90,13 +90,28 @@ app.get('/api/openapi.json', (req, res) => {
       },
       "/api/ai/users": {
         get: {
-          summary: "Get registered user accounts count and details. Supports filtering by division and role.",
+          summary: "Get registered user accounts count and details. Supports filtering by division, role, and search query.",
           operationId: "getUsers",
           parameters: [
             { name: "division", in: "query", schema: { type: "string" }, description: "Division name or abbreviation (e.g. bsp, bilaspur, raipur)" },
-            { name: "role", in: "query", schema: { type: "string" }, description: "Filter by role (e.g. user, sub_admin, global_admin)" }
+            { name: "role", in: "query", schema: { type: "string" }, description: "Filter by role (e.g. user, sub_admin, global_admin)" },
+            { name: "search", in: "query", schema: { type: "string" }, description: "Search query matching user name, email, or contact number" }
           ],
           responses: { "200": { description: "Successful response" } }
+        }
+      },
+      "/api/entries/{id}/attachment": {
+        get: {
+          summary: "Get entry evidence attachment binary file (image/document)",
+          operationId: "getEntryAttachment",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string" }, description: "The unique entry UUID" }
+          ],
+          responses: {
+            "200": {
+              description: "Binary file content (image or pdf)"
+            }
+          }
         }
       }
     },
