@@ -1104,6 +1104,12 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (mongoose.connection.readyState !== 1) {
       console.log(`⏳ Database connection is in state ${mongoose.connection.readyState}. Awaiting connection event...`);
+      
+      // If disconnected, trigger connectDB immediately to start the connection process
+      if (mongoose.connection.readyState === 0) {
+        connectDB();
+      }
+
       await new Promise((resolve) => {
         if (mongoose.connection.readyState === 1) return resolve();
         

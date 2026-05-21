@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
+  // If already connected (1) or connecting (2), do nothing to prevent duplicate connection loops
+  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
+    return;
+  }
+
   try {
 
     mongoose.set('bufferCommands', true);
@@ -45,6 +50,8 @@ const connectDB = async () => {
     });
     console.log(`✅ SUCCESS: MongoDB Connected to: ${conn.connection.host}`);
     
+    // Clear last error upon successful connection
+    mongoose.connection.lastError = null;
 
     // Run migration asynchronously in the background to prevent blocking startup
     (async () => {
@@ -64,6 +71,9 @@ const connectDB = async () => {
     };
     console.error(`MongoDB Connection Error: ${error.message}`);
     console.log('Server is running, but database features will be unavailable until connected.');
+    
+    console.log('🔄 Scheduling MongoDB connection retry in 5 seconds...');
+    setTimeout(connectDB, 5000);
   }
 };
 
