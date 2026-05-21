@@ -100,16 +100,36 @@ app.get('/api/openapi.json', (req, res) => {
           responses: { "200": { description: "Successful response" } }
         }
       },
-      "/api/entries/{id}/attachment": {
+      "/api/ai/entries/{id}/attachment": {
         get: {
-          summary: "Get entry evidence attachment binary file (image/document)",
+          summary: "Get entry evidence attachment (image/document) in OpenAI format",
           operationId: "getEntryAttachment",
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string" }, description: "The unique entry UUID" }
           ],
           responses: {
             "200": {
-              description: "Binary file content (image or pdf)"
+              description: "Successful response with file",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      openaiFileResponse: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            name: { type: "string" },
+                            mime_type: { type: "string" },
+                            content: { type: "string", format: "byte" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -864,6 +884,56 @@ app.get('/api/ai/users', authorize, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching users for AI:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET entry attachment image/file for AI (Secure, OpenAI format)
+app.get('/api/ai/entries/:id/attachment', authorize, async (req, res) => {
+  try {
+    const entry = await Entry.findOne({ id: req.params.id }).select('attachment userId divisionName id');
+    if (!entry || !entry.attachment) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+
+    if (req.user.role === 'user' && entry.userId && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
+      return res.status(403).json({ message: 'Unauthorized for this division' });
+    }
+
+    const matches = entry.attachment.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ message: 'Invalid attachment format' });
+    }
+
+    const contentType = matches[1];
+    const base64Data = matches[2];
+
+    const mimeToExt = {
+      'application/pdf': 'pdf',
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'text/plain': 'txt',
+      'text/csv': 'csv'
+    };
+    const ext = mimeToExt[contentType] || (contentType.split('/')[1] || 'bin');
+
+    res.json({
+      openaiFileResponse: [
+        {
+          name: `evidence-${entry.id}.${ext}`,
+          mime_type: contentType,
+          content: base64Data
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('Error serving AI attachment:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
