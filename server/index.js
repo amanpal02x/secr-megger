@@ -1260,11 +1260,11 @@ app.post('/api/admin/generate-api-key', protect, adminOnly, async (req, res) => 
   }
 });
 
-const startServer = async () => {
-  await connectDB();
+const startServer = () => {
   app.listen(PORT, () => {
     console.log(`SECR Megger Server running on http://localhost:${PORT}`);
   });
+  connectDB();
 };
 
 startServer();
