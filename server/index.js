@@ -156,6 +156,25 @@ app.get('/privacy', (req, res) => {
   `);
 });
 
+// GET Database Connection Status (For diagnostics)
+app.get('/api/db-status', (req, res) => {
+  const readyStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const state = mongoose.connection.readyState;
+  
+  const rawUri = process.env.MONGO_URI || '';
+  let maskedUri = 'not_configured';
+  if (rawUri) {
+    maskedUri = rawUri.replace(/:([^@:]+)@/, ':***@');
+  }
+  
+  res.json({
+    status: readyStates[state] || 'unknown',
+    readyState: state,
+    mongoUri: maskedUri,
+    lastError: mongoose.connection.lastError || null
+  });
+});
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',

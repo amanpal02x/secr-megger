@@ -50,6 +50,11 @@ const connectDB = async () => {
       }
     })();
   } catch (error) {
+    mongoose.connection.lastError = {
+      message: error.message,
+      stack: error.stack,
+      time: new Date().toISOString()
+    };
     console.error(`MongoDB Connection Error: ${error.message}`);
     console.log('Server is running, but database features will be unavailable until connected.');
   }
