@@ -175,6 +175,50 @@ app.get('/api/db-status', (req, res) => {
   });
 });
 
+// GET DNS & TCP Connection Test (For diagnostics)
+app.get('/api/dns-test', async (req, res) => {
+  const dns = require('dns').promises;
+  const net = require('net');
+  const host = 'ac-s4x4fjx-shard-00-00.eivnsxz.mongodb.net';
+  const port = 27017;
+  const results = { host, port };
+  
+  try {
+    const addresses = await dns.resolve4(host);
+    results.dns = { success: true, addresses };
+  } catch (err) {
+    results.dns = { success: false, error: err.message };
+  }
+  
+  try {
+    results.tcp = await new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(8000);
+      
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve({ success: true, message: 'Connected successfully' });
+      });
+      
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve({ success: false, error: 'Connection timed out' });
+      });
+      
+      socket.on('error', (err) => {
+        socket.destroy();
+        resolve({ success: false, error: err.message });
+      });
+      
+      socket.connect(port, host);
+    });
+  } catch (err) {
+    results.tcp = { success: false, error: err.message };
+  }
+  
+  res.json(results);
+});
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',
