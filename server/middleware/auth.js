@@ -61,7 +61,11 @@ const apiKeyAuth = async (req, res, next) => {
       next();
     } catch (error) {
       console.error('[API KEY AUTH] Verification Error:', error);
-      res.status(500).json({ message: 'Server Error during API Key verification' });
+      res.status(500).json({ 
+        message: 'Server Error during API Key verification',
+        error: error.message,
+        stack: error.stack
+      });
     }
   } else {
     res.status(401).json({ message: 'Not authorized, no API key provided' });
