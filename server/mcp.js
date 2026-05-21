@@ -2,6 +2,7 @@ const { Server } = require("@modelcontextprotocol/sdk/server/index.js");
 const { SSEServerTransport } = require("@modelcontextprotocol/sdk/server/sse.js");
 const { CallToolRequestSchema, ListToolsRequestSchema } = require("@modelcontextprotocol/sdk/types.js");
 const Entry = require("./models/Entry");
+const User = require("./models/User");
 
 
 
@@ -44,11 +45,22 @@ const setupMCP = (app) => {
         },
         {
           name: "search_entries",
-          description: "Search for specific cable route entries by technician or section name.",
+          description: "Search for specific cable route entries by technician, section name, or major section.",
           inputSchema: {
             type: "object",
             properties: {
-              query: { type: "string", description: "Search term (technician name or section)" },
+              query: { type: "string", description: "Search term (technician name, section, or major section)" },
+            },
+            required: ["query"],
+          },
+        },
+        {
+          name: "search_users",
+          description: "Search for registered users/technicians by name, phone number, email, division, or role to view their profile details and contact number.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Search query (name, phone, email, etc.)" },
             },
             required: ["query"],
           },
@@ -90,7 +102,8 @@ const setupMCP = (app) => {
       const history = await Entry.find({ sectionName: { $regex: sectionName, $options: 'i' } })
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('testDate condition quadReadings');
+        .select('testDate condition quadReadings createdAt userId')
+        .populate('userId', 'name phoneNumber');
 
       return {
         content: [{ 
@@ -105,14 +118,36 @@ const setupMCP = (app) => {
       const entries = await Entry.find({
         $or: [
           { sectionName: { $regex: queryStr, $options: 'i' } },
-          { technicianName: { $regex: queryStr, $options: 'i' } }
+          { technicianName: { $regex: queryStr, $options: 'i' } },
+          { majorSectionName: { $regex: queryStr, $options: 'i' } }
         ]
-      }).limit(10).sort({ createdAt: -1 });
+      })
+      .populate('userId', 'name phoneNumber email division role')
+      .limit(10)
+      .sort({ createdAt: -1 });
 
       return {
         content: [{ 
           type: "text", 
           text: `Results for '${queryStr}': ${JSON.stringify(entries)}` 
+        }],
+      };
+    }
+
+    if (name === "search_users") {
+      const queryStr = args.query.toLowerCase();
+      const users = await User.find({
+        $or: [
+          { name: { $regex: queryStr, $options: 'i' } },
+          { phoneNumber: { $regex: queryStr, $options: 'i' } },
+          { email: { $regex: queryStr, $options: 'i' } }
+        ]
+      }).select('name email phoneNumber role division isActive createdAt');
+
+      return {
+        content: [{ 
+          type: "text", 
+          text: `Results for '${queryStr}': ${JSON.stringify(users)}` 
         }],
       };
     }

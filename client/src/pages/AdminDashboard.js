@@ -8,6 +8,18 @@ export default function AdminDashboard({ setActivePage, showToast }) {
   const { dbUser, token, logout } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredUsers = users.filter(u => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.phoneNumber && u.phoneNumber.toLowerCase().includes(q)) ||
+      (u.division && u.division.toLowerCase().includes(q)) ||
+      (u.role && u.role.toLowerCase().includes(q))
+    );
+  });
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -203,9 +215,23 @@ export default function AdminDashboard({ setActivePage, showToast }) {
 
             {}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-xs font-black text-navy-900 uppercase tracking-[0.2em]">Authorized Personnel Database</h3>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-full">{users.length} Active Accounts</span>
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-black text-navy-900 uppercase tracking-[0.2em]">Authorized Personnel Database</h3>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-full mt-1 inline-block">
+                    {searchQuery ? `${filteredUsers.length} of ${users.length}` : users.length} Active Accounts
+                  </span>
+                </div>
+                <div className="relative min-w-[240px]">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input
+                    type="text"
+                    placeholder="Search name, email, phone..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-xl bg-white text-navy-900 placeholder:text-slate-400 focus:outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/10 transition-all"
+                  />
+                </div>
               </div>
               {loading ? (
                 <div className="p-20 text-center">
@@ -224,7 +250,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                       {users.map(u => (
+                       {filteredUsers.map(u => (
                         <tr key={u._id} className="hover:bg-slate-50/80 transition-colors group">
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-3">

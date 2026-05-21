@@ -276,13 +276,14 @@ app.get('/api/entries', authorize, async (req, res) => {
     }
     
 
-    let entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 }).allowDiskUse(true);
+    let entries = await Entry.find(query).select('-attachment').populate('userId', 'name phoneNumber').sort({ createdAt: -1 }).allowDiskUse(true);
 
     if (search) {
       const q = search.toLowerCase();
       entries = entries.filter(
         e =>
-          e.sectionName.toLowerCase().includes(q) ||
+          (e.sectionName && e.sectionName.toLowerCase().includes(q)) ||
+          (e.majorSectionName && e.majorSectionName.toLowerCase().includes(q)) ||
           (e.technicianName && e.technicianName.toLowerCase().includes(q))
       );
     }
@@ -295,7 +296,7 @@ app.get('/api/entries', authorize, async (req, res) => {
 // GET single entry details (with attachment) on demand
 app.get('/api/entries/:id', protect, async (req, res) => {
   try {
-    const entry = await Entry.findOne({ id: req.params.id });
+    const entry = await Entry.findOne({ id: req.params.id }).populate('userId', 'name phoneNumber');
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
     if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
@@ -638,7 +639,8 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
       .sort({ createdAt: -1 })
       .allowDiskUse(true)
       .limit(10)
-      .select('testDate condition quadReadings technicianName majorSectionName sectionName createdAt');
+      .select('testDate condition quadReadings technicianName majorSectionName sectionName createdAt userId')
+      .populate('userId', 'name phoneNumber');
 
     res.json(history);
   } catch (error) {
@@ -658,7 +660,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
        return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
     }
 
-    const entries = await Entry.find(query).select('-attachment').sort({ createdAt: -1 }).allowDiskUse(true).limit(finalLimit);
+    const entries = await Entry.find(query).select('-attachment').populate('userId', 'name phoneNumber').sort({ createdAt: -1 }).allowDiskUse(true).limit(finalLimit);
 
     res.json({
       count: entries.length,
@@ -716,7 +718,7 @@ app.get('/api/ai/active-users', authorize, async (req, res) => {
 // GET Users count and details for AI (Supports AI API Key)
 app.get('/api/ai/users', authorize, async (req, res) => {
   try {
-    const { division, role } = req.query;
+    const { division, role, search } = req.query;
     let query = {};
 
     const getSearchRegexes = (kw) => {
@@ -737,6 +739,15 @@ app.get('/api/ai/users', authorize, async (req, res) => {
 
     if (role) {
       query.role = role;
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      query.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+        { phoneNumber: { $regex: q, $options: 'i' } }
+      ];
     }
 
     const users = await User.find(query).select('name email phoneNumber role division isActive createdAt');

@@ -43,4 +43,32 @@ const entrySchema = new mongoose.Schema({
   }
 });
 
+entrySchema.virtual('submittedBy').get(function() {
+  return this.userId && this.userId.name ? this.userId.name : undefined;
+});
+
+entrySchema.virtual('submittedByPhone').get(function() {
+  return this.userId && this.userId.phoneNumber ? this.userId.phoneNumber : undefined;
+});
+
+entrySchema.set('toJSON', {
+  virtuals: true,
+  transform: function (doc, ret) {
+    if (ret.createdAt) {
+      ret.createdAtIST = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    }
+    return ret;
+  }
+});
+
+entrySchema.set('toObject', {
+  virtuals: true,
+  transform: function (doc, ret) {
+    if (ret.createdAt) {
+      ret.createdAtIST = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    }
+    return ret;
+  }
+});
+
 module.exports = mongoose.model('Entry', entrySchema);

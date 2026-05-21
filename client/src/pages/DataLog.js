@@ -33,6 +33,8 @@ export default function DataLog({ showToast }) {
           'Name': e.technicianName,
           'Designation': e.supervisorName || '',
           'Condition': e.condition,
+          'Submitted By User': e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—',
+          'Submission Exact Time': e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—',
           'Quad No': q.quadNo,
           'Loop Resistance (Ω)': q.loopResistance || '',
           'L1-Earth (MΩ)': q.insulationL1E || '',
@@ -56,7 +58,7 @@ export default function DataLog({ showToast }) {
 
     const wscols = [
       { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
-      { wch: 12 }, { wch: 8 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+      { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 8 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
       { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 25 }
     ];
     ws['!cols'] = wscols;
@@ -109,6 +111,7 @@ export default function DataLog({ showToast }) {
     { label: '#', className: 'hidden md:table-cell' },
     { label: 'Date', className: '' },
     { label: 'Division', className: 'hidden sm:table-cell' },
+    { label: 'Major Section', className: 'hidden sm:table-cell' },
     { label: 'Section / Description', className: '' },
     { label: 'Name & Designation', className: 'hidden lg:table-cell' },
     { label: 'Action', className: 'text-right' },
@@ -223,6 +226,9 @@ export default function DataLog({ showToast }) {
                         <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap hidden sm:table-cell">
                           {e.divisionName?.replace(' Division', '')}
                         </td>
+                        <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap hidden sm:table-cell" title={e.majorSectionName}>
+                          <div className="truncate max-w-[120px] md:max-w-none">{e.majorSectionName}</div>
+                        </td>
                          <td className="px-3.5 py-3 text-slate-500 text-xs font-medium">
                           <div className="truncate max-w-[120px] md:max-w-none" title={e.sectionName}>{e.sectionName}</div>
                         </td>
@@ -320,12 +326,13 @@ export default function DataLog({ showToast }) {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                  <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                  <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-4">
                                     {[
                                       ['Major Section', e.majorSectionName],
                                       ['Designation', e.supervisorName || '—'],
                                       ['Name', e.technicianName],
-                                      ['Recorded On', new Date(e.createdAt).toLocaleDateString('en-IN')],
+                                      ['Recorded On', e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
+                                      ['Submitted By User', e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—'],
                                     ].map(([k, v]) => (
                                       <div key={k}>
                                         <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">{k}</p>
