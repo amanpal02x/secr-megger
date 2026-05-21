@@ -72,6 +72,11 @@ const authorize = async (req, res, next) => {
   if (req.headers['x-api-key']) {
     return apiKeyAuth(req, res, next);
   }
+  // Support ChatGPT sending API keys via Authorization: Bearer secr_...
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer secr_')) {
+    req.headers['x-api-key'] = req.headers.authorization.split(' ')[1];
+    return apiKeyAuth(req, res, next);
+  }
   return protect(req, res, next);
 };
 
