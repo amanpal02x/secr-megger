@@ -45,6 +45,12 @@ const entrySchema = new mongoose.Schema({
   }
 });
 
+entrySchema.index({ createdAt: -1 });
+entrySchema.index({ divisionName: 1 });
+entrySchema.index({ userName: 1 });
+entrySchema.index({ technicianName: 1 });
+entrySchema.index({ condition: 1 });
+
 entrySchema.virtual('submittedBy').get(function() {
   return this.userId && this.userId.name ? this.userId.name : undefined;
 });
