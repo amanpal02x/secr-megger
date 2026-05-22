@@ -34,7 +34,7 @@ setupMCP(app);
 // GET OpenAPI Spec (For ChatGPT Actions)
 app.get('/api/openapi.json', (req, res) => {
   res.json({
-    openapi: "3.0.0",
+    openapi: "3.1.0",
     info: {
       title: "SECR Megger AI API",
       version: "1.0.0",
