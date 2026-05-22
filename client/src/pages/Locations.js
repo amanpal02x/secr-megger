@@ -17,6 +17,7 @@ export default function Locations({ showToast }) {
 
   // Search/Filter
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterDiv, setFilterDiv] = useState('');
 
   useEffect(() => {
     fetchLocations();
@@ -101,15 +102,28 @@ export default function Locations({ showToast }) {
 
   // Filtered locations
   const filteredLocations = useMemo(() => {
-    if (!searchTerm.trim()) return locations;
+    let res = locations;
+    if (filterDiv) {
+      res = res.filter((l) => l.division === filterDiv);
+    }
+    if (!searchTerm.trim()) return res;
     const q = searchTerm.toLowerCase();
-    return locations.filter(
-      (l) =>
+    
+    // If the query is exactly a division code and no explicit division filter is selected,
+    // filter by that division exactly to prevent matching random substrings in other divisions
+    const isDivisionExactMatch = !filterDiv && uniqueDivisions.some((d) => d.toLowerCase() === q);
+    
+    return res.filter((l) => {
+      if (isDivisionExactMatch) {
+        return l.division?.toLowerCase() === q;
+      }
+      return (
         l.division?.toLowerCase().includes(q) ||
         l.majorSection?.toLowerCase().includes(q) ||
         l.section?.toLowerCase().includes(q)
-    );
-  }, [locations, searchTerm]);
+      );
+    });
+  }, [locations, searchTerm, filterDiv, uniqueDivisions]);
 
   if (!['admin', 'global_admin'].includes(dbUser?.role)) {
     return <div className="p-8 text-center text-red-600 font-bold">Access Denied. You must be a Global Administrator.</div>;
@@ -241,17 +255,35 @@ export default function Locations({ showToast }) {
                   {filteredLocations.length} Mapped Sections
                 </span>
               </div>
-              <div className="relative w-full sm:w-64">
-                <input
-                  type="text"
-                  placeholder="Search division, section..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-8 pr-4 py-2 focus:ring-1 focus:ring-navy-800 outline-none transition-all"
-                />
-                <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={filterDiv}
+                  onChange={(e) => setFilterDiv(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-800 focus:ring-1 focus:ring-navy-800 form-select-arrow min-w-[120px]"
+                  style={{ paddingRight: '28px', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                  }}
+                >
+                  <option value="">All Divisions</option>
+                  {uniqueDivisions.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <div className="relative w-full sm:w-64">
+                  <input
+                    type="text"
+                    placeholder="Search section..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-8 pr-4 py-2 focus:ring-1 focus:ring-navy-800 outline-none transition-all"
+                  />
+                  <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
               </div>
             </div>
 

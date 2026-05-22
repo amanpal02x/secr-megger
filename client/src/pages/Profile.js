@@ -84,7 +84,7 @@ export default function Profile() {
   const roleLabels = {
     global_admin: 'Global Admin',
     sub_admin: 'Sub Admin',
-    user: 'Technician',
+    user: 'User',
     admin: 'Administrator'
   };
 

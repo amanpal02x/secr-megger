@@ -140,7 +140,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xl font-bold text-navy-900">Add User</h3>
-                <p className="text-xs text-slate-500">Authorize and manage technicians or administrative staff</p>
+                <p className="text-xs text-slate-500">Authorize and manage users or administrative staff</p>
               </div>
               <button 
                 onClick={() => { setEditUser(null); setName(''); setEmail(''); setPhone(''); setPassword(''); setDivision(''); setShowForm(true); }}
@@ -183,7 +183,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
                             <div>
                               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Assigned Role</label>
                               <select value={role} onChange={e => setRole(e.target.value)} className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-navy-800 outline-none transition-all">
-                                <option value="user">Technician</option>
+                                <option value="user">User</option>
                                 <option value="sub_admin">Sub Admin</option>
                                 <option value="global_admin">Global Admin</option>
                               </select>
@@ -273,7 +273,7 @@ export default function AdminDashboard({ setActivePage, showToast }) {
                           </td>
                           <td className="px-8 py-5">
                             <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${u.role === 'global_admin' || u.role === 'admin' ? 'bg-amber-50 text-amber-700 border-amber-100' : u.role === 'sub_admin' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
-                              {u.role === 'global_admin' || u.role === 'admin' ? 'Global Admin' : u.role === 'sub_admin' ? 'Sub Admin' : 'Technician'}
+                              {u.role === 'global_admin' || u.role === 'admin' ? 'Global Admin' : u.role === 'sub_admin' ? 'Sub Admin' : 'User'}
                             </span>
                           </td>
                           <td className="px-8 py-5 text-xs font-bold text-navy-800">

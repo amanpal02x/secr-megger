@@ -181,7 +181,7 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
               {dbUser?.name || 'Megger User'}
             </div>
             <div className="text-[10px] text-slate-400 truncate capitalize">
-              {dbUser?.role === 'user' ? 'Technician' : dbUser?.role?.replace('_', ' ') || 'User'}
+              {dbUser?.role === 'user' ? 'User' : dbUser?.role?.replace('_', ' ') || 'User'}
             </div>
           </div>
 

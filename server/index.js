@@ -16,6 +16,7 @@ const Entry = require('./models/Entry');
 const User = require('./models/User');
 const Location = require('./models/Location');
 const { protect, adminOnly, authorize } = require('./middleware/auth');
+const { ensureDbConnected } = require('./middleware/dbCheck');
 const setupMCP = require('./mcp');
 
 const app = express();
@@ -37,16 +38,17 @@ app.get('/api/openapi.json', (req, res) => {
     info: {
       title: "SECR Megger AI API",
       version: "1.0.0",
-      description: "API for querying SECR Cable Route Megger data. IMPORTANT INSTRUCTION FOR AI: The backend is hosted on a free tier and sleeps after inactivity. If an API request fails, times out, or returns a 500/502 error, DO NOT tell the user it failed immediately. Wait 10 seconds and silently retry the exact same request. The server will be awake by then."
+      description: "API for querying SECR Cable Route Megger data. The backend server and database connection pool are kept warm 24/7 to ensure sub-second response times."
     },
     servers: [{ url: `${req.get('host').includes('localhost') ? 'http' : 'https'}://${req.get('host')}` }],
     paths: {
       "/api/ai/summary": {
         get: {
-          summary: "Get health summary. Supports filtering by division, technician, and date range.",
+          summary: "Get health summary. Supports filtering by division, user, and date range.",
           operationId: "getHealthSummary",
           parameters: [
             { name: "division", in: "query", schema: { type: "string" } },
+            { name: "userName", in: "query", schema: { type: "string" } },
             { name: "technicianName", in: "query", schema: { type: "string" } },
             { name: "startDate", in: "query", schema: { type: "string", format: "date", description: "YYYY-MM-DD" } },
             { name: "endDate", in: "query", schema: { type: "string", format: "date", description: "YYYY-MM-DD" } }
@@ -64,11 +66,12 @@ app.get('/api/openapi.json', (req, res) => {
       },
       "/api/ai/search": {
         get: {
-          summary: "Search for entries by any keyword (division, section, technician) or date range",
+          summary: "Search for entries by any keyword (division, section, user) or date range",
           operationId: "searchEntries",
           parameters: [
             { name: "q", in: "query", schema: { type: "string", description: "Keywords like bsp, r, ngp, or names" } },
             { name: "division", in: "query", schema: { type: "string" } },
+            { name: "userName", in: "query", schema: { type: "string" } },
             { name: "technicianName", in: "query", schema: { type: "string" } },
             { name: "condition", in: "query", schema: { type: "string", description: "Good, Fair, Poor, Critical" } },
             { name: "startDate", in: "query", schema: { type: "string", format: "date" } },
@@ -80,7 +83,7 @@ app.get('/api/openapi.json', (req, res) => {
       },
       "/api/ai/active-users": {
         get: {
-          summary: "Get a list of technicians who recently made entries, including their total entry count and last entry timestamp.",
+          summary: "Get a list of users who recently made entries, including their total entry count and last entry timestamp.",
           operationId: "getActiveUsers",
           parameters: [
             { name: "days", in: "query", schema: { type: "integer", description: "Number of days to look back (default 7)" } }
@@ -382,6 +385,7 @@ app.get('/api/entries', authorize, async (req, res) => {
         e =>
           (e.sectionName && e.sectionName.toLowerCase().includes(q)) ||
           (e.majorSectionName && e.majorSectionName.toLowerCase().includes(q)) ||
+          (e.userName && e.userName.toLowerCase().includes(q)) ||
           (e.technicianName && e.technicianName.toLowerCase().includes(q))
       );
     }
@@ -451,13 +455,16 @@ app.post('/api/entries', protect, async (req, res) => {
       sectionName,
       quadReadings,
       remarks,
+      userName,
       technicianName,
       supervisorName,
       testDate,
       attachment,
     } = req.body;
 
-    if (!divisionId || !majorSectionId || !sectionId || !technicianName || !testDate || !attachment) {
+    const resolvedUserName = userName || technicianName;
+
+    if (!divisionId || !majorSectionId || !sectionId || !resolvedUserName || !testDate || !attachment) {
       return res.status(400).json({ error: 'Missing required fields (including attachment)' });
     }
 
@@ -465,22 +472,18 @@ app.post('/api/entries', protect, async (req, res) => {
     let worstCondition = 'Good';
     if (quadReadings && Array.isArray(quadReadings)) {
       quadReadings.forEach(q => {
-        const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
-        readings.forEach(r => {
-          if (!r) return;
-          const val = parseFloat(r.replace(/[^\d.]/g, ''));
-          if (isNaN(val)) return;
-          
-          let currentCond = 'Good';
-          if (val < 1) currentCond = 'Critical';
-          else if (val < 5) currentCond = 'Poor';
-          else if (val < 10) currentCond = 'Fair';
-
-          const weights = { Critical: 3, Poor: 2, Fair: 1, Good: 0 };
-          if (weights[currentCond] > weights[worstCondition]) {
-            worstCondition = currentCond;
-          }
-        });
+        if (q.condition === 'Bad') {
+          worstCondition = 'Bad';
+        } else if (!q.condition) {
+          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+          readings.forEach(r => {
+            if (!r) return;
+            const val = parseFloat(r.replace(/[^\d.]/g, ''));
+            if (!isNaN(val) && val < 10) {
+              worstCondition = 'Bad';
+            }
+          });
+        }
       });
     }
 
@@ -495,7 +498,8 @@ app.post('/api/entries', protect, async (req, res) => {
       quadReadings,
       condition: worstCondition,
       remarks,
-      technicianName,
+      userName: resolvedUserName,
+      technicianName: resolvedUserName,
       supervisorName,
       testDate,
       attachment,
@@ -572,29 +576,28 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
 
       if (quadReadings && Array.isArray(quadReadings)) {
         quadReadings.forEach(q => {
-          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
-          readings.forEach(r => {
-            if (!r) return;
-            const val = parseFloat(r.replace(/[^\d.]/g, ''));
-            if (isNaN(val)) return;
-            
-            let currentCond = 'Good';
-            if (val < 1) currentCond = 'Critical';
-            else if (val < 5) currentCond = 'Poor';
-            else if (val < 10) currentCond = 'Fair';
-
-            const weights = { Critical: 3, Poor: 2, Fair: 1, Good: 0 };
-            if (weights[currentCond] > weights[worstCondition]) {
-              worstCondition = currentCond;
-            }
-          });
+          if (q.condition === 'Bad') {
+            worstCondition = 'Bad';
+          } else if (!q.condition) {
+            const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+            readings.forEach(r => {
+              if (!r) return;
+              const val = parseFloat(r.replace(/[^\d.]/g, ''));
+              if (!isNaN(val) && val < 10) {
+                worstCondition = 'Bad';
+              }
+            });
+          }
         });
       }
 
+      const resolvedUserName = entry.userName || entry.technicianName;
       return {
         ...entry,
         id: entry.id || uuidv4(),
         userId: req.user._id,
+        userName: resolvedUserName,
+        technicianName: resolvedUserName,
         condition: worstCondition,
         createdAt: new Date()
       };
@@ -638,7 +641,7 @@ app.get('/api/stats', authorize, async (req, res) => {
 
 // Helper to build queries with date, user, and abbreviation filters
 const buildAIQuery = (reqQuery) => {
-  const { q, division, technicianName, startDate, endDate, condition } = reqQuery;
+  const { q, division, userName, technicianName, startDate, endDate, condition } = reqQuery;
   let query = {};
   
 
@@ -669,9 +672,15 @@ const buildAIQuery = (reqQuery) => {
     query.divisionName = { $in: getSearchRegexes(division) };
   }
   
-  if (technicianName) {
-    const techRegex = getSearchRegexes(technicianName)[0];
-    if (techRegex) query.technicianName = { $regex: techRegex };
+  const resolvedUserName = userName || technicianName;
+  if (resolvedUserName) {
+    const techRegex = getSearchRegexes(resolvedUserName)[0];
+    if (techRegex) {
+      query.$or = [
+        { userName: { $regex: techRegex } },
+        { technicianName: { $regex: techRegex } }
+      ];
+    }
   }
 
   if (condition) {
@@ -686,6 +695,7 @@ const buildAIQuery = (reqQuery) => {
         { sectionName: { $in: qRegexes } },
         { majorSectionName: { $in: qRegexes } },
         { divisionName: { $in: qRegexes } },
+        { userName: { $in: qRegexes } },
         { technicianName: { $in: qRegexes } }
       ];
     }
@@ -695,7 +705,7 @@ const buildAIQuery = (reqQuery) => {
 };
 
 // GET AI Summary (Aggregated data for AI insight)
-app.get('/api/ai/summary', authorize, async (req, res) => {
+app.get('/api/ai/summary', authorize, ensureDbConnected, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
 
@@ -748,7 +758,7 @@ app.get('/api/ai/summary', authorize, async (req, res) => {
 });
 
 // GET Section Detail with History (For trend analysis)
-app.get('/api/ai/section-history', authorize, async (req, res) => {
+app.get('/api/ai/section-history', authorize, ensureDbConnected, async (req, res) => {
   try {
     const { sectionName } = req.query;
     if (!sectionName) return res.status(400).json({ message: 'sectionName is required' });
@@ -765,7 +775,7 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
       .sort({ createdAt: -1 })
       .allowDiskUse(true)
       .limit(10)
-      .select('testDate condition quadReadings technicianName majorSectionName sectionName createdAt userId')
+      .select('testDate condition quadReadings userName technicianName majorSectionName sectionName createdAt userId')
       .populate('userId', 'name phoneNumber');
 
     res.json(history);
@@ -775,7 +785,7 @@ app.get('/api/ai/section-history', authorize, async (req, res) => {
 });
 
 // GET Search Entries
-app.get('/api/ai/search', authorize, async (req, res) => {
+app.get('/api/ai/search', authorize, ensureDbConnected, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
     const limit = parseInt(req.query.limit) || 50;
@@ -783,7 +793,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
     
 
     if (Object.keys(query).length === 0) {
-       return res.status(400).json({ message: 'At least one search parameter (q, division, technicianName, startDate, condition) is required' });
+       return res.status(400).json({ message: 'At least one search parameter (q, division, userName, startDate, condition) is required' });
     }
 
     const entries = await Entry.find(query).select('-attachment').populate('userId', 'name phoneNumber').sort({ createdAt: -1 }).allowDiskUse(true).limit(finalLimit);
@@ -800,7 +810,7 @@ app.get('/api/ai/search', authorize, async (req, res) => {
 });
 
 // GET Active Users (Tracking who is making entries and when)
-app.get('/api/ai/active-users', authorize, async (req, res) => {
+app.get('/api/ai/active-users', authorize, ensureDbConnected, async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 7;
     const dateLimit = new Date();
@@ -811,7 +821,7 @@ app.get('/api/ai/active-users', authorize, async (req, res) => {
       {
         $group: {
           _id: { 
-            technicianName: "$technicianName", 
+            userName: { $ifNull: ["$userName", "$technicianName"] }, 
             divisionName: "$divisionName" 
           },
           totalEntries: { $sum: 1 },
@@ -821,7 +831,8 @@ app.get('/api/ai/active-users', authorize, async (req, res) => {
       {
         $project: {
           _id: 0,
-          technicianName: "$_id.technicianName",
+          userName: "$_id.userName",
+          technicianName: "$_id.userName",
           divisionName: "$_id.divisionName",
           totalEntries: 1,
           lastEntryDate: 1
@@ -842,7 +853,7 @@ app.get('/api/ai/active-users', authorize, async (req, res) => {
 });
 
 // GET Users count and details for AI (Supports AI API Key)
-app.get('/api/ai/users', authorize, async (req, res) => {
+app.get('/api/ai/users', authorize, ensureDbConnected, async (req, res) => {
   try {
     const { division, role, search } = req.query;
     let query = {};
@@ -889,7 +900,7 @@ app.get('/api/ai/users', authorize, async (req, res) => {
 });
 
 // GET entry attachment image/file for AI (Secure, OpenAI format)
-app.get('/api/ai/entries/:id/attachment', authorize, async (req, res) => {
+app.get('/api/ai/entries/:id/attachment', authorize, ensureDbConnected, async (req, res) => {
   try {
     const entry = await Entry.findOne({ id: req.params.id }).select('attachment userId divisionName id');
     if (!entry || !entry.attachment) {
@@ -1404,6 +1415,21 @@ const startServer = () => {
     console.log(`SECR Megger Server running on http://localhost:${PORT}`);
   });
   connectDB();
+
+  // Keep-Alive: Ping MongoDB every 90 seconds to prevent connection dormancy
+  setInterval(async () => {
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await mongoose.connection.db.admin().ping();
+        console.log('🔄 [DB Keep-Alive] MongoDB Atlas connection pool pinged successfully.');
+      } catch (err) {
+        console.error('❌ [DB Keep-Alive] Failed to ping MongoDB Atlas:', err.message);
+      }
+    } else {
+      console.log(`⚠️ [DB Keep-Alive] Connection state is ${mongoose.connection.readyState}. Attempting reconnect...`);
+      connectDB();
+    }
+  }, 90000); // 90 seconds
 };
 
 startServer();

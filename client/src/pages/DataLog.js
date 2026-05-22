@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { getEntries, getEntry, deleteEntry, getDivisions } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import ConditionBadge from '../components/ConditionBadge';
@@ -11,28 +11,69 @@ export default function DataLog({ showToast }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterDiv, setFilterDiv] = useState('');
-  const [filterDays, setFilterDays] = useState('');
+  const [filterMajorSec, setFilterMajorSec] = useState('');
+  const [filterSec, setFilterSec] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  const isGlobalAdmin = ['admin', 'global_admin'].includes(dbUser?.role);
+  const isSubAdmin = dbUser?.role === 'sub_admin';
+
+  // Cascading lists derived from loaded entries
+  const uniqueMajorSections = useMemo(() => {
+    const set = new Set(entries.map((e) => e.majorSectionName).filter(Boolean));
+    return Array.from(set).sort();
+  }, [entries]);
+
+  const uniqueSections = useMemo(() => {
+    const filteredForSec = filterMajorSec
+      ? entries.filter((e) => e.majorSectionName === filterMajorSec)
+      : entries;
+    const set = new Set(filteredForSec.map((e) => e.sectionName).filter(Boolean));
+    return Array.from(set).sort();
+  }, [entries, filterMajorSec]);
+
+  // Client-side filtering of entries
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => {
+      if (filterMajorSec && e.majorSectionName !== filterMajorSec) {
+        return false;
+      }
+      if (filterSec && e.sectionName !== filterSec) {
+        return false;
+      }
+      return true;
+    });
+  }, [entries, filterMajorSec, filterSec]);
+
+  const handleDivChange = (val) => {
+    setFilterDiv(val);
+    setFilterMajorSec('');
+    setFilterSec('');
+  };
+
+  const handleMajorSecChange = (val) => {
+    setFilterMajorSec(val);
+    setFilterSec('');
+  };
+
   const handleExport = () => {
-    if (entries.length === 0) {
+    if (filteredEntries.length === 0) {
       showToast('No data to export.', 'error');
       return;
     }
 
     const flatData = [];
-    entries.forEach((e) => {
+    filteredEntries.forEach((e) => {
       e.quadReadings.forEach((q) => {
         flatData.push({
           'Date': new Date(e.testDate).toLocaleDateString('en-IN'),
           'Division': e.divisionName,
           'Major Section': e.majorSectionName,
           'Section': e.sectionName,
-          'Name': e.technicianName,
+          'Name': e.userName || e.technicianName,
           'Designation': e.supervisorName || '',
-          'Condition': e.condition,
           'Submitted By User': e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—',
           'Submission Exact Time': e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—',
           'Quad No': q.quadNo,
@@ -41,11 +82,12 @@ export default function DataLog({ showToast }) {
           'L2-Earth (MΩ)': q.insulationL2E || '',
           'L1-L2 (MΩ)': q.insulationL1L2 || '',
           'DB Loss': q.dbLoss || '',
+          'Core Size': q.coreSize || '',
           'NEXT': q.next || '',
           'FEXT': q.fext || '',
-          'Core Size': q.coreSize || '',
           'Noise Level': q.noiseLevel || '',
           'Armor Continuity': q.armerContinuity || '',
+          'Condition': q.condition || 'Good',
           'Remark': q.remark || ''
         });
       });
@@ -114,6 +156,7 @@ export default function DataLog({ showToast }) {
     { label: 'Major Section', className: 'hidden sm:table-cell' },
     { label: 'Section / Description', className: '' },
     { label: 'Name & Designation', className: 'hidden lg:table-cell' },
+    { label: 'Submitted By', className: 'hidden lg:table-cell' },
     { label: 'Action', className: 'text-right' },
   ];
 
@@ -125,13 +168,13 @@ export default function DataLog({ showToast }) {
           SECR / Signal &amp; Telecom
         </div>
         <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">Maintenance Data Log</h1>
-        <p className="text-xs md:text-sm text-slate-500 mt-0.5">{entries.length} register record{entries.length !== 1 ? 's' : ''} found</p>
+        <p className="text-xs md:text-sm text-slate-500 mt-0.5">{filteredEntries.length} register record{filteredEntries.length !== 1 ? 's' : ''} found</p>
       </div>
 
-      {}
+      {/* Toolbar / Search Filters */}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 flex-1">
+          <div className="relative flex-1 min-w-[200px]">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input
               type="text"
@@ -141,11 +184,70 @@ export default function DataLog({ showToast }) {
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-navy-900 placeholder:text-slate-400 focus:outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/10"
             />
           </div>
-          <div className="flex gap-2">
+
+          {isGlobalAdmin && (
+            <>
+              <select
+                value={filterDiv}
+                onChange={e => handleDivChange(e.target.value)}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[130px] sm:flex-1 md:flex-none"
+                style={{ paddingRight: '28px', appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                }}
+              >
+                <option value="">All Divisions</option>
+                {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+
+              <select
+                value={filterMajorSec}
+                onChange={e => handleMajorSecChange(e.target.value)}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
+                style={{ paddingRight: '28px', appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                }}
+              >
+                <option value="">All Major Sections</option>
+                {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
+              </select>
+
+              <select
+                value={filterSec}
+                onChange={e => setFilterSec(e.target.value)}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
+                style={{ paddingRight: '28px', appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                }}
+              >
+                <option value="">All Sections</option>
+                {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </>
+          )}
+
+          {isSubAdmin && (
+            <select
+              value={filterMajorSec}
+              onChange={e => handleMajorSecChange(e.target.value)}
+              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[180px] sm:flex-1 md:flex-none"
+              style={{ paddingRight: '28px', appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+              }}
+            >
+              <option value="">All Major Sections</option>
+              {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
+            </select>
+          )}
+
+          {!isGlobalAdmin && !isSubAdmin && (
             <select
               value={filterDiv}
-              onChange={e => setFilterDiv(e.target.value)}
-              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[120px]"
+              onChange={e => handleDivChange(e.target.value)}
+              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[130px] sm:flex-1 md:flex-none"
               style={{ paddingRight: '28px', appearance: 'none',
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
@@ -154,27 +256,16 @@ export default function DataLog({ showToast }) {
               <option value="">All Divisions</option>
               {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            <select
-              value={filterDays}
-              onChange={e => setFilterDays(e.target.value)}
-              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[100px]"
-              style={{ paddingRight: '28px', appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-              }}
-            >
-              <option value="">All Time</option>
-              <option value="1">24 Hrs</option>
-              <option value="7">7 Days</option>
-              <option value="30">30 Days</option>
-            </select>
-          </div>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
-          <button onClick={load} className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Refresh
-          </button>
+          {!isGlobalAdmin && !isSubAdmin && (
+            <button onClick={load} className="flex-grow sm:flex-none flex items-center justify-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Refresh
+            </button>
+          )}
           <button onClick={handleExport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span className="hidden sm:inline">Export Report</span>
@@ -183,7 +274,7 @@ export default function DataLog({ showToast }) {
         </div>
       </div>
 
-      {}
+      {/* Table Section */}
       <div className="flex-1 p-4 md:p-8">
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           {loading ? (
@@ -191,10 +282,10 @@ export default function DataLog({ showToast }) {
               <div className="w-6 h-6 border-2 border-slate-200 border-t-navy-600 rounded-full animate-spin" />
               Loading records…
             </div>
-          ) : entries.length === 0 ? (
+          ) : filteredEntries.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-slate-400 text-sm text-center">
               <svg className="w-10 h-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <p>No records found{search || filterDiv ? ' for the selected filters.' : '.'}</p>
+              <p>No records found{search || filterDiv || filterMajorSec || filterSec ? ' for the selected filters.' : '.'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
@@ -212,7 +303,7 @@ export default function DataLog({ showToast }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e, i) => (
+                  {filteredEntries.map((e, i) => (
                     <React.Fragment key={e.id}>
                       <tr
                         onClick={() => toggle(e.id)}
@@ -233,10 +324,13 @@ export default function DataLog({ showToast }) {
                           <div className="truncate max-w-[120px] md:max-w-none" title={e.sectionName}>{e.sectionName}</div>
                         </td>
                         <td className="px-3.5 py-3 hidden lg:table-cell">
-                          <div className="text-xs font-semibold text-navy-800">{e.technicianName}</div>
+                          <div className="text-xs font-semibold text-navy-800">{e.userName || e.technicianName}</div>
                           {e.supervisorName && (
                             <div className="text-[10px] text-slate-400 font-medium">{e.supervisorName}</div>
                           )}
+                        </td>
+                        <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap hidden lg:table-cell">
+                          {e.userId?.name || e.submittedBy || '—'}
                         </td>
                         <td className="px-3.5 py-3 text-right" onClick={ev => ev.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
@@ -285,7 +379,13 @@ export default function DataLog({ showToast }) {
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">L1/E</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">L2/E</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">L1/L2</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">DB Loss</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">Core</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">NEXT</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">FEXT</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">Noise</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Armor</th>
+                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">Condition</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Remark</th>
                                         </tr>
                                       </thead>
@@ -297,7 +397,17 @@ export default function DataLog({ showToast }) {
                                             <td className="px-3 py-1.5 text-center text-navy-800 font-mono font-medium">{q.insulationL1E || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-navy-800 font-mono font-medium">{q.insulationL2E || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-navy-800 font-mono font-medium">{q.insulationL1L2 || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.dbLoss || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.coreSize || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.next || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.fext || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.noiseLevel || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.armerContinuity || '—'}</td>
+                                            <td className="px-3 py-1.5 text-center">
+                                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
+                                                {q.condition || 'Good'}
+                                              </span>
+                                            </td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono truncate max-w-[150px]" title={q.remark || ''}>{q.remark || '—'}</td>
                                           </tr>
                                         ))}
@@ -310,15 +420,26 @@ export default function DataLog({ showToast }) {
                                     {e.quadReadings?.map(q => (
                                       <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
                                         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
-                                          <span className="font-bold text-navy-900">Quad {q.quadNo}</span>
-                                          <span className="text-[10px] text-slate-400">{q.remark || 'No Remark'}</span>
+                                          <span className="font-bold text-navy-900 font-mono">Quad {q.quadNo}</span>
+                                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
+                                            {q.condition || 'Good'}
+                                          </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                           <div className="flex justify-between"><span className="text-slate-400">Loop Res:</span> <span className="font-mono">{q.loopResistance || '—'}</span></div>
-                                          <div className="flex justify-between"><span className="text-slate-400">Armor:</span> <span className="font-mono">{q.armerContinuity || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">Core:</span> <span className="font-mono">{q.coreSize || '—'}</span></div>
                                           <div className="flex justify-between"><span className="text-slate-400">L1/E:</span> <span className="font-mono font-bold text-navy-700">{q.insulationL1E || '—'}</span></div>
                                           <div className="flex justify-between"><span className="text-slate-400">L2/E:</span> <span className="font-mono font-bold text-navy-700">{q.insulationL2E || '—'}</span></div>
-                                          <div className="col-span-2 flex justify-between pt-1 mt-1 border-t border-slate-50"><span className="text-slate-400">L1/L2:</span> <span className="font-mono font-bold text-navy-700">{q.insulationL1L2 || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">L1/L2:</span> <span className="font-mono font-bold text-navy-700">{q.insulationL1L2 || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">DB Loss:</span> <span className="font-mono">{q.dbLoss || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">NEXT:</span> <span className="font-mono">{q.next || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">FEXT:</span> <span className="font-mono">{q.fext || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">Noise:</span> <span className="font-mono">{q.noiseLevel || '—'}</span></div>
+                                          <div className="flex justify-between"><span className="text-slate-400">Armor:</span> <span className="font-mono">{q.armerContinuity || '—'}</span></div>
+                                          <div className="col-span-2 flex flex-col pt-1 mt-1 border-t border-slate-50">
+                                            <span className="text-slate-400 mb-0.5">Remark:</span>
+                                            <span className="text-slate-700 font-mono truncate" title={q.remark || ''}>{q.remark || '—'}</span>
+                                          </div>
                                         </div>
                                       </div>
                                     ))}
@@ -330,7 +451,7 @@ export default function DataLog({ showToast }) {
                                     {[
                                       ['Major Section', e.majorSectionName],
                                       ['Designation', e.supervisorName || '—'],
-                                      ['Name', e.technicianName],
+                                      ['Name', e.userName || e.technicianName],
                                       ['Recorded On', e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
                                       ['Submitted By User', e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—'],
                                     ].map(([k, v]) => (

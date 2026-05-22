@@ -12,6 +12,7 @@ const quadReadingSchema = new mongoose.Schema({
   fext: String,
   noiseLevel: String,
   armerContinuity: String,
+  condition: String,
   remark: String,
 });
 
@@ -28,6 +29,7 @@ const entrySchema = new mongoose.Schema({
   sectionId: String,
   sectionName: String,
   quadReadings: [quadReadingSchema],
+  userName: String,
   technicianName: String,
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -62,6 +64,8 @@ entrySchema.set('toJSON', {
     if (ret.createdAt) {
       ret.createdAtIST = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     }
+    ret.userName = ret.userName || ret.technicianName;
+    ret.technicianName = ret.userName || ret.technicianName;
     return ret;
   }
 });
@@ -72,6 +76,8 @@ entrySchema.set('toObject', {
     if (ret.createdAt) {
       ret.createdAtIST = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     }
+    ret.userName = ret.userName || ret.technicianName;
+    ret.technicianName = ret.userName || ret.technicianName;
     return ret;
   }
 });

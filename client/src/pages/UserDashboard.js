@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getStats, getEntries, getEntry } from '../utils/api';
 import ConditionBadge from '../components/ConditionBadge';
 
-export default function TechnicianDashboard({ setActivePage }) {
+export default function UserDashboard({ setActivePage }) {
   const [recent, setRecent] = useState([]);
   const [allEntries, setAllEntries] = useState([]);
   const [activeFilter, setActiveFilter] = useState(null);
@@ -43,7 +43,7 @@ export default function TechnicianDashboard({ setActivePage }) {
   if (loading) return (
     <div className="flex-1 flex items-center justify-center flex-col gap-3 text-slate-400 text-sm">
       <div className="w-8 h-8 border-2 border-slate-200 border-t-gold-500 rounded-full animate-spin" />
-      Loading technician workspace…
+      Loading user workspace…
     </div>
   );
 
@@ -52,7 +52,7 @@ export default function TechnicianDashboard({ setActivePage }) {
       {}
       <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">Technician Workspace</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">User Workspace</h1>
           <p className="text-xs md:text-sm text-slate-500 mt-1">Record and manage your cable meggering tests</p>
         </div>
         <button
@@ -218,7 +218,7 @@ export default function TechnicianDashboard({ setActivePage }) {
                                     {[
                                       ['Major Section', r.majorSectionName],
                                       ['Designation', r.supervisorName || '—'],
-                                      ['Name', r.technicianName],
+                                      ['Name', r.userName || r.technicianName],
                                       ['Recorded On', r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
                                       ['Submitted By User', r.userId && typeof r.userId === 'object' ? `${r.userId.name || '—'} (${r.userId.phoneNumber || '—'})` : '—'],
                                     ].map(([k, v]) => (

@@ -88,7 +88,7 @@ export default function Login() {
 
         if (!isAuthorized) {
           logout();
-          setError(`This account does not have ${loginMode === 'admin' ? 'Administrative' : 'Technician'} privileges.`);
+          setError(`This account does not have ${loginMode === 'admin' ? 'Administrative' : 'User'} privileges.`);
           setOtpSent(false);
         }
       } else {
@@ -133,7 +133,7 @@ export default function Login() {
             onClick={() => { setLoginMode('user'); setError(''); }}
             className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${!isAdmin ? 'bg-navy-900 text-white shadow-md' : 'text-slate-500 hover:text-navy-900'}`}
           >
-            Technician
+            User
           </button>
           <button
             onClick={() => { setLoginMode('admin'); setError(''); }}
@@ -290,7 +290,7 @@ export default function Login() {
               {techLoginSubMode === 'creds' ? (
                 <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Technician Email</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">User Email</label>
                     <div className="relative group">
                       <input
                         type="email"
@@ -327,7 +327,7 @@ export default function Login() {
                     disabled={loading}
                     className="w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 text-sm tracking-wide bg-navy-900 hover:bg-navy-800 text-white shadow-navy-900/20"
                   >
-                    {loading ? 'Authenticating...' : 'Sign In as Technician'}
+                    {loading ? 'Authenticating...' : 'Sign In as User'}
                   </button>
                 </form>
               ) : (

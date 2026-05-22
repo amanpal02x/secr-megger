@@ -6,7 +6,7 @@ import EntryForm from './pages/EntryForm';
 import DataLog from './pages/DataLog';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
-import TechnicianDashboard from './pages/TechnicianDashboard';
+import UserDashboard from './pages/UserDashboard';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Locations from './pages/Locations';
@@ -77,13 +77,13 @@ function MainApp() {
   const renderPage = () => {
     const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser.role);
     switch (page) {
-      case 'dashboard': return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      case 'dashboard': return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <UserDashboard setActivePage={handleSetPage} />;
       case 'entry':     return <EntryForm setActivePage={handleSetPage} showToast={showToast} />;
       case 'log':       return <DataLog showToast={showToast} />;
-      case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
-      case 'locations': return ['admin', 'global_admin'].includes(dbUser.role) ? <Locations showToast={showToast} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <UserDashboard setActivePage={handleSetPage} />;
+      case 'locations': return ['admin', 'global_admin'].includes(dbUser.role) ? <Locations showToast={showToast} /> : <UserDashboard setActivePage={handleSetPage} />;
       case 'profile':   return <Profile />;
-      default:          return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <TechnicianDashboard setActivePage={handleSetPage} />;
+      default:          return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <UserDashboard setActivePage={handleSetPage} />;
     }
   };
 

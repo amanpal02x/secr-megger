@@ -20,6 +20,7 @@ const EMPTY_QUAD = {
   fext: '',
   noiseLevel: '',
   armerContinuity: 'OK',
+  condition: '',
   remark: ''
 };
 
@@ -27,7 +28,7 @@ const EMPTY = {
   divisionId: '', divisionName: '', majorSectionId: '', majorSectionName: '',
   sectionId: '', sectionName: '',
   quadReadings: QUAD_NAMES.map(name => ({ ...EMPTY_QUAD, quadNo: name })),
-  technicianName: '', supervisorName: '',
+  technicianName: '', userName: '', supervisorName: '',
   testDate: new Date().toISOString().split('T')[0],
   attachment: '',
 };
@@ -47,7 +48,7 @@ function SectionPanel({ number, title, icon, children }) {
 
 export default function EntryForm({ setActivePage, showToast }) {
   const { dbUser } = useAuth();
-  const [form, setForm] = useState({ ...EMPTY, technicianName: dbUser?.name || '' });
+  const [form, setForm] = useState({ ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' });
   const [divisions, setDivisions] = useState([]);
   const [majorSections, setMajorSections] = useState([]);
   const [sections, setSections] = useState([]);
@@ -65,8 +66,23 @@ export default function EntryForm({ setActivePage, showToast }) {
   useEffect(() => { refreshDropdowns(); }, []);
 
   const set = (name, val) => {
-    setForm(f => ({ ...f, [name]: val }));
-    if (errors[name]) setErrors(e => { const c = { ...e }; delete c[name]; return c; });
+    setForm(f => {
+      const updated = { ...f, [name]: val };
+      if (name === 'userName') {
+        updated.technicianName = val;
+      } else if (name === 'technicianName') {
+        updated.userName = val;
+      }
+      return updated;
+    });
+    if (errors[name] || (name === 'userName' && errors['technicianName']) || (name === 'technicianName' && errors['userName'])) {
+      setErrors(e => {
+        const c = { ...e };
+        delete c.userName;
+        delete c.technicianName;
+        return c;
+      });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -114,7 +130,7 @@ export default function EntryForm({ setActivePage, showToast }) {
     if (!form.divisionId) e.divisionId = 'Select a division';
     if (!form.majorSectionId) e.majorSectionId = 'Select major section';
     if (!form.sectionId) e.sectionId = 'Select a section';
-    if (!form.technicianName.trim()) e.technicianName = 'Name required';
+    if (!form.userName.trim() && !form.technicianName.trim()) e.userName = 'Name required';
     if (!form.testDate) e.testDate = 'Date required';
     if (!form.attachment) e.attachment = 'Image/File upload is required';
     return e;
@@ -124,12 +140,36 @@ export default function EntryForm({ setActivePage, showToast }) {
     ev.preventDefault();
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
+
+    const isQuadFilled = (q) => {
+      return (
+        (q.loopResistance && q.loopResistance.trim() !== '') ||
+        (q.insulationL1E && q.insulationL1E.trim() !== '') ||
+        (q.insulationL2E && q.insulationL2E.trim() !== '') ||
+        (q.insulationL1L2 && q.insulationL1L2.trim() !== '') ||
+        (q.dbLoss && q.dbLoss.trim() !== '') ||
+        (q.next && q.next.trim() !== '') ||
+        (q.fext && q.fext.trim() !== '') ||
+        (q.noiseLevel && q.noiseLevel.trim() !== '') ||
+        (q.remark && q.remark.trim() !== '')
+      );
+    };
+
+    const missingConditionQuads = form.quadReadings
+      .filter(q => isQuadFilled(q) && !q.condition)
+      .map(q => q.quadNo);
+
+    if (missingConditionQuads.length > 0) {
+      showToast(`Please select a condition (Good/Bad) for: ${missingConditionQuads.join(', ')}`, 'error');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await createEntry(form);
       showToast('Test record saved successfully.', 'success');
       setSavedBanner(true); setTimeout(() => setSavedBanner(false), 4000);
-      setForm({ ...EMPTY, technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]);
+      setForm({ ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]);
     } catch { showToast('Failed to save. Please try again.', 'error'); }
     finally { setSubmitting(false); }
   };
@@ -155,7 +195,8 @@ export default function EntryForm({ setActivePage, showToast }) {
           majorSectionId: row['MAJOR SECTION'] || '',
           sectionName: row.SECTION || '',
           sectionId: row.SECTION || '',
-          technicianName: row.TECHNICIAN || 'Bulk Upload',
+          userName: row.USER || row.TECHNICIAN || 'Bulk Upload',
+          technicianName: row.USER || row.TECHNICIAN || 'Bulk Upload',
           testDate: row.DATE || new Date().toISOString().split('T')[0],
           quadReadings: QUAD_NAMES.map(name => ({ ...EMPTY_QUAD, quadNo: name }))
         }));
@@ -238,7 +279,7 @@ export default function EntryForm({ setActivePage, showToast }) {
             </button>
             
             <div className="mt-6 text-[10px] text-slate-400 uppercase font-bold tracking-widest">
-              Required Columns: divisionName, sectionName, technicianName, testDate
+              Required Columns: divisionName, sectionName, userName, testDate
             </div>
           </div>
         </div>
@@ -302,6 +343,7 @@ export default function EntryForm({ setActivePage, showToast }) {
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">FEXT (db)</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Noise (V)</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Armor</th>
+                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Condition</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Remark</th>
                   </tr>
                 </thead>
@@ -310,41 +352,48 @@ export default function EntryForm({ setActivePage, showToast }) {
                     <tr key={q.quadNo} className="hover:bg-slate-50 transition-colors">
                       <td className="px-2 py-1.5 font-mono font-bold text-navy-800 bg-slate-50/50 sticky left-0 z-10 border-r border-slate-200">{q.quadNo}</td>
                       <td className="px-1 py-1">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm px-1 py-1.5" placeholder="—" value={q.loopResistance} onChange={e => updateQuad(idx, 'loopResistance', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-slate-300 hover:border-slate-400 focus:border-navy-500 rounded focus:ring-2 focus:ring-navy-500/10 text-center font-mono text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.loopResistance} onChange={e => updateQuad(idx, 'loopResistance', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL1E} onChange={e => updateQuad(idx, 'insulationL1E', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-navy-300 hover:border-navy-400 focus:border-navy-500 rounded focus:ring-2 focus:ring-navy-500/10 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 outline-none transition-all duration-150" value={q.insulationL1E} onChange={e => updateQuad(idx, 'insulationL1E', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL2E} onChange={e => updateQuad(idx, 'insulationL2E', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-navy-300 hover:border-navy-400 focus:border-navy-500 rounded focus:ring-2 focus:ring-navy-500/10 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 outline-none transition-all duration-150" value={q.insulationL2E} onChange={e => updateQuad(idx, 'insulationL2E', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-navy-50/30">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-navy-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 placeholder:text-navy-300" placeholder=">20M" value={q.insulationL1L2} onChange={e => updateQuad(idx, 'insulationL1L2', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-navy-300 hover:border-navy-400 focus:border-navy-500 rounded focus:ring-2 focus:ring-navy-500/10 text-center font-mono text-sm font-semibold text-navy-900 px-1 py-1.5 outline-none transition-all duration-150" value={q.insulationL1L2} onChange={e => updateQuad(idx, 'insulationL1L2', e.target.value)} />
                       </td>
                       <td className="px-1 py-1">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-slate-300 focus:border-navy-500 rounded focus:ring-0 text-center font-mono text-sm px-1 py-1.5" placeholder="-4.5" value={q.dbLoss} onChange={e => updateQuad(idx, 'dbLoss', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-slate-300 hover:border-slate-400 focus:border-navy-500 rounded focus:ring-2 focus:ring-navy-500/10 text-center font-mono text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.dbLoss} onChange={e => updateQuad(idx, 'dbLoss', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="0.9" value={q.coreSize} onChange={e => updateQuad(idx, 'coreSize', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-center text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.coreSize} onChange={e => updateQuad(idx, 'coreSize', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 61" value={q.next} onChange={e => updateQuad(idx, 'next', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-center text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.next} onChange={e => updateQuad(idx, 'next', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[75px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 61" value={q.fext} onChange={e => updateQuad(idx, 'fext', e.target.value)} />
+                        <input type="text" className="w-[75px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-center text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.fext} onChange={e => updateQuad(idx, 'fext', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[85px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="e.g. 12mv" value={q.noiseLevel} onChange={e => updateQuad(idx, 'noiseLevel', e.target.value)} />
+                        <input type="text" className="w-[85px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-center text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.noiseLevel} onChange={e => updateQuad(idx, 'noiseLevel', e.target.value)} />
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <select className="w-[100px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-sm px-1 py-1.5" value={q.armerContinuity} onChange={e => updateQuad(idx, 'armerContinuity', e.target.value)}>
+                        <select className="w-[100px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.armerContinuity} onChange={e => updateQuad(idx, 'armerContinuity', e.target.value)}>
                           <option>OK</option>
                           <option>Defective</option>
                           <option>Disconn.</option>
                         </select>
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">
-                        <input type="text" className="w-[140px] mx-auto block bg-transparent border border-transparent hover:border-amber-300 focus:border-amber-500 rounded focus:ring-0 text-center text-sm px-1 py-1.5" placeholder="Remarks..." value={q.remark} onChange={e => updateQuad(idx, 'remark', e.target.value)} />
+                        <select className="w-[85px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-sm px-1 py-1.5 font-semibold text-navy-800 outline-none transition-all duration-150" value={q.condition} onChange={e => updateQuad(idx, 'condition', e.target.value)}>
+                          <option value="">Select</option>
+                          <option value="Good">Good</option>
+                          <option value="Bad">Bad</option>
+                        </select>
+                      </td>
+                      <td className="px-1 py-1 bg-amber-50/30">
+                        <input type="text" className="w-[140px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-center text-sm px-1 py-1.5 outline-none transition-all duration-150" value={q.remark} onChange={e => updateQuad(idx, 'remark', e.target.value)} />
                       </td>
                     </tr>
                   ))}
@@ -386,7 +435,7 @@ export default function EntryForm({ setActivePage, showToast }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <FormLabel required>Name</FormLabel>
-                  <Input placeholder="Sign & Name" value={form.technicianName} onChange={e => set('technicianName', e.target.value)} error={errors.technicianName} />
+                  <Input placeholder="Sign & Name" value={form.userName || form.technicianName} onChange={e => set('userName', e.target.value)} error={errors.userName || errors.technicianName} />
                 </div>
                 <div>
                   <FormLabel>Designation</FormLabel>
@@ -403,7 +452,7 @@ export default function EntryForm({ setActivePage, showToast }) {
         {/* Sticky footer */}
         <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 md:px-8 py-4 flex flex-row justify-end gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-20">
           <button type="button"
-            onClick={() => { setForm({ ...EMPTY, technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]); }}
+            onClick={() => { setForm({ ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]); }}
             className="flex-1 md:flex-none px-5 py-2.5 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
           >
             Reset

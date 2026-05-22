@@ -45,18 +45,18 @@ const setupMCP = (app) => {
         },
         {
           name: "search_entries",
-          description: "Search for specific cable route entries by technician, section name, or major section.",
+          description: "Search for specific cable route entries by user, section name, or major section.",
           inputSchema: {
             type: "object",
             properties: {
-              query: { type: "string", description: "Search term (technician name, section, or major section)" },
+              query: { type: "string", description: "Search term (user name, section, or major section)" },
             },
             required: ["query"],
           },
         },
         {
           name: "search_users",
-          description: "Search for registered users/technicians by name, phone number, email, division, or role to view their profile details and contact number.",
+          description: "Search for registered users by name, phone number, email, division, or role to view their profile details and contact number.",
           inputSchema: {
             type: "object",
             properties: {
@@ -118,6 +118,7 @@ const setupMCP = (app) => {
       const entries = await Entry.find({
         $or: [
           { sectionName: { $regex: queryStr, $options: 'i' } },
+          { userName: { $regex: queryStr, $options: 'i' } },
           { technicianName: { $regex: queryStr, $options: 'i' } },
           { majorSectionName: { $regex: queryStr, $options: 'i' } }
         ]
