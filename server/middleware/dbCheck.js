@@ -14,12 +14,12 @@ const ensureDbConnected = async (req, res, next) => {
     connectDB();
   }
 
-  // Wait for connection with a fast timeout (3.5 seconds) to return 503 instead of timing out ChatGPT's action
+  // Wait for connection with a fast timeout (2.0 seconds) to return 503 instead of timing out ChatGPT's action
   const connected = await new Promise((resolve) => {
     const timeout = setTimeout(() => {
       console.warn('⚠️ [DB Check] Database connection wait timed out.');
       resolve(false);
-    }, 3500);
+    }, 2000);
 
     const checkState = () => {
       if (mongoose.connection.readyState === 1) {
