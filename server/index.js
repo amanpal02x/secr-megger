@@ -1416,7 +1416,7 @@ const startServer = () => {
   });
   connectDB();
 
-  // Keep-Alive: Ping MongoDB every 90 seconds to prevent connection dormancy
+  // Keep-Alive: Ping MongoDB every 30 seconds to prevent connection dormancy
   setInterval(async () => {
     if (mongoose.connection.readyState === 1) {
       try {
@@ -1429,7 +1429,7 @@ const startServer = () => {
       console.log(`⚠️ [DB Keep-Alive] Connection state is ${mongoose.connection.readyState}. Attempting reconnect...`);
       connectDB();
     }
-  }, 90000); // 90 seconds
+  }, 30000); // 30 seconds
 };
 
 startServer();
