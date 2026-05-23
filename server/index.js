@@ -709,40 +709,40 @@ app.get('/api/ai/summary', authorize, ensureDbConnected, async (req, res) => {
   try {
     const query = buildAIQuery(req.query);
 
-    const stats = await Entry.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: "$condition",
-          count: { $sum: 1 }
+    const [stats, distribution, byDivision] = await Promise.all([
+      Entry.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: "$condition",
+            count: { $sum: 1 }
+          }
         }
-      }
-    ]);
-
-    const distribution = await Entry.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: "$majorSectionName",
-          total: { $sum: 1 },
-          critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
-          poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
-        }
-      },
-      { $sort: { critical: -1, poor: -1 } }
-    ]);
-
-    const byDivision = await Entry.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: "$divisionName",
-          total: { $sum: 1 },
-          critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
-          poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
-        }
-      },
-      { $sort: { total: -1 } }
+      ]),
+      Entry.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: "$majorSectionName",
+            total: { $sum: 1 },
+            critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
+            poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
+          }
+        },
+        { $sort: { critical: -1, poor: -1 } }
+      ]),
+      Entry.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: "$divisionName",
+            total: { $sum: 1 },
+            critical: { $sum: { $cond: [{ $eq: ["$condition", "Critical"] }, 1, 0] } },
+            poor: { $sum: { $cond: [{ $eq: ["$condition", "Poor"] }, 1, 0] } }
+          }
+        },
+        { $sort: { total: -1 } }
+      ])
     ]);
 
     res.json({
