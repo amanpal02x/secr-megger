@@ -18,6 +18,7 @@ const Location = require('./models/Location');
 const { protect, adminOnly, authorize } = require('./middleware/auth');
 const { ensureDbConnected } = require('./middleware/dbCheck');
 const setupMCP = require('./mcp');
+const { standardizeMajorSection, standardizeString } = require('./utils/standardize');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -243,9 +244,7 @@ app.get('/api/dns-test', async (req, res) => {
 });
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET);
 };
 
 // Locations are now fetched from the database. 
@@ -286,14 +285,29 @@ app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
     const locations = req.body;
     if (!Array.isArray(locations)) return res.status(400).json({ error: 'Array expected' });
     
+    const seen = new Set();
+    const uniqueLocations = [];
+
+    for (const l of locations) {
+      const rawDiv = l.DIVISION || l.division;
+      const rawMajor = l['MAJOR SECTION'] || l.majorSection;
+      const rawSec = l.SECTION || l.section;
+
+      const div = standardizeString(rawDiv).toUpperCase();
+      const major = standardizeMajorSection(rawMajor);
+      const sec = standardizeString(rawSec);
+
+      if (!div || !major || !sec) continue;
+
+      const key = `${div}|${major}|${sec}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueLocations.push({ division: div, majorSection: major, section: sec });
+      }
+    }
 
     await Location.deleteMany({});
-    
-    await Location.insertMany(locations.map(l => ({
-      division: l.DIVISION || l.division,
-      majorSection: l['MAJOR SECTION'] || l.majorSection,
-      section: l.SECTION || l.section
-    })));
+    await Location.insertMany(uniqueLocations);
     
     res.status(201).json({ message: 'Master data updated successfully' });
   } catch (err) {
@@ -318,7 +332,26 @@ app.post('/api/locations', protect, adminOnly, async (req, res) => {
     if (!division || !majorSection || !section) {
       return res.status(400).json({ message: 'Missing required fields: division, majorSection, section' });
     }
-    const newLocation = await Location.create({ division, majorSection, section });
+
+    const cleanDiv = standardizeString(division).toUpperCase();
+    const cleanMajor = standardizeMajorSection(majorSection);
+    const cleanSection = standardizeString(section);
+
+    const existing = await Location.findOne({
+      division: cleanDiv,
+      majorSection: cleanMajor,
+      section: cleanSection
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'Location already exists' });
+    }
+
+    const newLocation = await Location.create({
+      division: cleanDiv,
+      majorSection: cleanMajor,
+      section: cleanSection
+    });
     res.status(201).json(newLocation);
   } catch (err) {
     res.status(500).json({ message: 'Error creating location' });
@@ -333,9 +366,26 @@ app.put('/api/locations/:id', protect, adminOnly, async (req, res) => {
     if (!location) {
       return res.status(404).json({ message: 'Location not found' });
     }
-    if (division !== undefined) location.division = division;
-    if (majorSection !== undefined) location.majorSection = majorSection;
-    if (section !== undefined) location.section = section;
+
+    const cleanDiv = division !== undefined ? standardizeString(division).toUpperCase() : location.division;
+    const cleanMajor = majorSection !== undefined ? standardizeMajorSection(majorSection) : location.majorSection;
+    const cleanSection = section !== undefined ? standardizeString(section) : location.section;
+
+    const existing = await Location.findOne({
+      _id: { $ne: req.params.id },
+      division: cleanDiv,
+      majorSection: cleanMajor,
+      section: cleanSection
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'Location already exists' });
+    }
+
+    if (division !== undefined) location.division = cleanDiv;
+    if (majorSection !== undefined) location.majorSection = cleanMajor;
+    if (section !== undefined) location.section = cleanSection;
+    
     await location.save();
     res.json(location);
   } catch (err) {
@@ -489,12 +539,12 @@ app.post('/api/entries', protect, async (req, res) => {
 
     const entry = await Entry.create({
       id: uuidv4(),
-      divisionId,
-      divisionName,
-      majorSectionId,
-      majorSectionName,
-      sectionId,
-      sectionName,
+      divisionId: standardizeString(divisionId).toUpperCase(),
+      divisionName: standardizeString(divisionName).toUpperCase(),
+      majorSectionId: standardizeMajorSection(majorSectionId),
+      majorSectionName: standardizeMajorSection(majorSectionName),
+      sectionId: standardizeString(sectionId),
+      sectionName: standardizeString(sectionName),
       quadReadings,
       condition: worstCondition,
       remarks,
@@ -525,7 +575,15 @@ app.put('/api/entries/:id', protect, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized for this division' });
     }
 
-    const updated = await Entry.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    const updateData = { ...req.body };
+    if (updateData.divisionId) updateData.divisionId = standardizeString(updateData.divisionId).toUpperCase();
+    if (updateData.divisionName) updateData.divisionName = standardizeString(updateData.divisionName).toUpperCase();
+    if (updateData.majorSectionId) updateData.majorSectionId = standardizeMajorSection(updateData.majorSectionId);
+    if (updateData.majorSectionName) updateData.majorSectionName = standardizeMajorSection(updateData.majorSectionName);
+    if (updateData.sectionId) updateData.sectionId = standardizeString(updateData.sectionId);
+    if (updateData.sectionName) updateData.sectionName = standardizeString(updateData.sectionName);
+
+    const updated = await Entry.findOneAndUpdate({ id: req.params.id }, updateData, { new: true });
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
@@ -595,6 +653,12 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
       return {
         ...entry,
         id: entry.id || uuidv4(),
+        divisionId: standardizeString(entry.divisionId).toUpperCase(),
+        divisionName: standardizeString(entry.divisionName).toUpperCase(),
+        majorSectionId: standardizeMajorSection(entry.majorSectionId),
+        majorSectionName: standardizeMajorSection(entry.majorSectionName),
+        sectionId: standardizeString(entry.sectionId),
+        sectionName: standardizeString(entry.sectionName),
         userId: req.user._id,
         userName: resolvedUserName,
         technicianName: resolvedUserName,
