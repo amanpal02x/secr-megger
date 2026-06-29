@@ -72,12 +72,74 @@ export default function Dashboard({ setActivePage }) {
   const isGlobalAdmin = ['admin', 'global_admin'].includes(role);
   const isSubAdmin = role === 'sub_admin';
 
+  // Helper to parse values to number, ignoring unrecognized string values
+  const parseVal = (val) => {
+    if (val === undefined || val === null) return null;
+    const s = val.toString().trim();
+    if (s === '' || s === '-') return null;
+    const clean = s.replace(/[^\d.]/g, '');
+    const num = parseFloat(clean);
+    return isNaN(num) ? null : num;
+  };
+
+  // Helper to get category for an entry
+  const getEntryCategory = (entry) => {
+    if (!entry.quadReadings || !Array.isArray(entry.quadReadings)) {
+      return null;
+    }
+
+    const validQuads = entry.quadReadings.filter(q => {
+      const v1 = parseVal(q.insulationL1E);
+      const v2 = parseVal(q.insulationL2E);
+      const v3 = parseVal(q.insulationL1L2);
+      return v1 !== null && v2 !== null && v3 !== null;
+    });
+
+    if (validQuads.length === 0) {
+      return null;
+    }
+
+    let hasCritical = false;
+    let allExcellent = true;
+
+    for (const q of validQuads) {
+      const v1 = parseVal(q.insulationL1E);
+      const v2 = parseVal(q.insulationL2E);
+      const v3 = parseVal(q.insulationL1L2);
+
+      const isQuadExcellent = (v1 === 100 && v2 === 100 && v3 === 100);
+      const isQuadCritical = (v1 < 20 || v2 < 20 || v3 < 20);
+
+      if (isQuadCritical) {
+        hasCritical = true;
+      }
+      if (!isQuadExcellent) {
+        allExcellent = false;
+      }
+    }
+
+    if (allExcellent) {
+      return 'excellent';
+    }
+    if (hasCritical) {
+      return 'critical';
+    }
+    return 'good';
+  };
+
   // Calculate client-side stats
-  // 1. Global Admin divisions
+  // 1. Global Admin divisions/condition stats
   const totalCount = allEntries.length;
-  const bspCount = allEntries.filter(e => e.divisionId === 'BSP' || e.divisionName === 'BSP').length;
-  const ngpCount = allEntries.filter(e => e.divisionId === 'NGP' || e.divisionName === 'NGP').length;
-  const rCount = allEntries.filter(e => e.divisionId === 'R' || e.divisionName === 'R').length;
+  let excellentCount = 0;
+  let goodCount = 0;
+  let criticalCount = 0;
+
+  allEntries.forEach(e => {
+    const cat = getEntryCategory(e);
+    if (cat === 'excellent') excellentCount++;
+    else if (cat === 'good') goodCount++;
+    else if (cat === 'critical') criticalCount++;
+  });
 
   // 2. Sub Admin pending sections & user submissions
   const subAdminDiv = dbUser?.division || '';
@@ -101,7 +163,7 @@ export default function Dashboard({ setActivePage }) {
   const filteredEntries = allEntries.filter(e => {
     if (isGlobalAdmin) {
       if (activeFilter === 'total') return true;
-      return e.divisionId === activeFilter || e.divisionName === activeFilter;
+      return getEntryCategory(e) === activeFilter;
     } else if (isSubAdmin) {
       if (filterUser) {
         const userId = e.userId?._id || e.userId || e.userName || e.technicianName || 'unknown';
@@ -130,38 +192,38 @@ export default function Dashboard({ setActivePage }) {
             <StatCard 
               value={totalCount} 
               label="Total Tests" 
-              sub="All divisions" 
+              sub="All submitted records" 
               barClass="bg-navy-600" 
               valueClass="text-navy-700" 
               isActive={activeFilter === 'total'}
               onClick={() => setActiveFilter('total')}
             />
             <StatCard 
-              value={bspCount} 
-              label="Bilaspur (BSP)" 
-              sub="BSP records" 
+              value={excellentCount} 
+              label="Excellent" 
+              sub="All values are 100" 
+              barClass="bg-green-600" 
+              valueClass="text-green-700" 
+              isActive={activeFilter === 'excellent'}
+              onClick={() => setActiveFilter('excellent')}
+            />
+            <StatCard 
+              value={goodCount} 
+              label="Good" 
+              sub="All values > 20" 
               barClass="bg-blue-600" 
               valueClass="text-blue-700" 
-              isActive={activeFilter === 'BSP'}
-              onClick={() => setActiveFilter('BSP')}
+              isActive={activeFilter === 'good'}
+              onClick={() => setActiveFilter('good')}
             />
             <StatCard 
-              value={ngpCount} 
-              label="Nagpur (NGP)" 
-              sub="NGP records" 
-              barClass="bg-teal-600" 
-              valueClass="text-teal-700" 
-              isActive={activeFilter === 'NGP'}
-              onClick={() => setActiveFilter('NGP')}
-            />
-            <StatCard 
-              value={rCount} 
-              label="Raipur (R)" 
-              sub="Raipur records" 
-              barClass="bg-purple-600" 
-              valueClass="text-purple-700" 
-              isActive={activeFilter === 'R'}
-              onClick={() => setActiveFilter('R')}
+              value={criticalCount} 
+              label="Critical" 
+              sub="Any value < 20" 
+              barClass="bg-red-600" 
+              valueClass="text-red-700" 
+              isActive={activeFilter === 'critical'}
+              onClick={() => setActiveFilter('critical')}
             />
           </div>
         )}
@@ -226,7 +288,7 @@ export default function Dashboard({ setActivePage }) {
                 {isGlobalAdmin && activeFilter !== 'total' && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 bg-navy-50 text-navy-850 border-navy-200">
                     <span className="w-1 h-1 rounded-full bg-current" />
-                    {activeFilter} Division
+                    {activeFilter} Records
                   </span>
                 )}
                 {isSubAdmin && filterUser && (
