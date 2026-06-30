@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getEntries, getLocations, getEntry } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import HealthSummaryCards from '../components/HealthSummaryCards';
+import { getEntryCondition } from '../utils/conditionUtils';
 
 function StatCard({ value, label, sub, barClass, valueClass, isActive, onClick }) {
   const activeStyles = isActive 
@@ -72,74 +74,12 @@ export default function Dashboard({ setActivePage }) {
   const isGlobalAdmin = ['admin', 'global_admin'].includes(role);
   const isSubAdmin = role === 'sub_admin';
 
-  // Helper to parse values to number, ignoring unrecognized string values
-  const parseVal = (val) => {
-    if (val === undefined || val === null) return null;
-    const s = val.toString().trim();
-    if (s === '' || s === '-') return null;
-    const clean = s.replace(/[^\d.]/g, '');
-    const num = parseFloat(clean);
-    return isNaN(num) ? null : num;
-  };
-
-  // Helper to get category for an entry
-  const getEntryCategory = (entry) => {
-    if (!entry.quadReadings || !Array.isArray(entry.quadReadings)) {
-      return null;
-    }
-
-    const validQuads = entry.quadReadings.filter(q => {
-      const v1 = parseVal(q.insulationL1E);
-      const v2 = parseVal(q.insulationL2E);
-      const v3 = parseVal(q.insulationL1L2);
-      return v1 !== null && v2 !== null && v3 !== null;
-    });
-
-    if (validQuads.length === 0) {
-      return null;
-    }
-
-    let hasCritical = false;
-    let allExcellent = true;
-
-    for (const q of validQuads) {
-      const v1 = parseVal(q.insulationL1E);
-      const v2 = parseVal(q.insulationL2E);
-      const v3 = parseVal(q.insulationL1L2);
-
-      const isQuadExcellent = (v1 === 100 && v2 === 100 && v3 === 100);
-      const isQuadCritical = (v1 < 20 || v2 < 20 || v3 < 20);
-
-      if (isQuadCritical) {
-        hasCritical = true;
-      }
-      if (!isQuadExcellent) {
-        allExcellent = false;
-      }
-    }
-
-    if (allExcellent) {
-      return 'excellent';
-    }
-    if (hasCritical) {
-      return 'critical';
-    }
-    return 'good';
-  };
-
   // Calculate client-side stats
-  // 1. Global Admin divisions/condition stats
+  // 1. Global Admin divisions
   const totalCount = allEntries.length;
-  let excellentCount = 0;
-  let goodCount = 0;
-  let criticalCount = 0;
-
-  allEntries.forEach(e => {
-    const cat = getEntryCategory(e);
-    if (cat === 'excellent') excellentCount++;
-    else if (cat === 'good') goodCount++;
-    else if (cat === 'critical') criticalCount++;
-  });
+  const bspCount = allEntries.filter(e => e.divisionId === 'BSP' || e.divisionName === 'BSP').length;
+  const ngpCount = allEntries.filter(e => e.divisionId === 'NGP' || e.divisionName === 'NGP').length;
+  const rCount = allEntries.filter(e => e.divisionId === 'R' || e.divisionName === 'R').length;
 
   // 2. Sub Admin pending sections & user submissions
   const subAdminDiv = dbUser?.division || '';
@@ -163,7 +103,7 @@ export default function Dashboard({ setActivePage }) {
   const filteredEntries = allEntries.filter(e => {
     if (isGlobalAdmin) {
       if (activeFilter === 'total') return true;
-      return getEntryCategory(e) === activeFilter;
+      return getEntryCondition(e).toLowerCase() === activeFilter.toLowerCase();
     } else if (isSubAdmin) {
       if (filterUser) {
         const userId = e.userId?._id || e.userId || e.userName || e.technicianName || 'unknown';
@@ -188,44 +128,11 @@ export default function Dashboard({ setActivePage }) {
       <div className="p-4 md:p-8 space-y-6">
         {/* KPI Cards Grid */}
         {isGlobalAdmin && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard 
-              value={totalCount} 
-              label="Total Tests" 
-              sub="All submitted records" 
-              barClass="bg-navy-600" 
-              valueClass="text-navy-700" 
-              isActive={activeFilter === 'total'}
-              onClick={() => setActiveFilter('total')}
-            />
-            <StatCard 
-              value={excellentCount} 
-              label="Excellent" 
-              sub="All values are 100" 
-              barClass="bg-green-600" 
-              valueClass="text-green-700" 
-              isActive={activeFilter === 'excellent'}
-              onClick={() => setActiveFilter('excellent')}
-            />
-            <StatCard 
-              value={goodCount} 
-              label="Good" 
-              sub="All values > 20" 
-              barClass="bg-blue-600" 
-              valueClass="text-blue-700" 
-              isActive={activeFilter === 'good'}
-              onClick={() => setActiveFilter('good')}
-            />
-            <StatCard 
-              value={criticalCount} 
-              label="Critical" 
-              sub="Any value < 20" 
-              barClass="bg-red-600" 
-              valueClass="text-red-700" 
-              isActive={activeFilter === 'critical'}
-              onClick={() => setActiveFilter('critical')}
-            />
-          </div>
+          <HealthSummaryCards 
+            entries={allEntries} 
+            activeFilter={activeFilter} 
+            onCardClick={setActiveFilter} 
+          />
         )}
 
         {isSubAdmin && (
@@ -280,6 +187,11 @@ export default function Dashboard({ setActivePage }) {
           </div>
         )}
 
+        {/* Health Summary Cards (only for Sub Admins) */}
+        {!isGlobalAdmin && (
+          <HealthSummaryCards entries={allEntries} />
+        )}
+
         <div className="space-y-5 items-start">
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
@@ -288,7 +200,7 @@ export default function Dashboard({ setActivePage }) {
                 {isGlobalAdmin && activeFilter !== 'total' && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 bg-navy-50 text-navy-850 border-navy-200">
                     <span className="w-1 h-1 rounded-full bg-current" />
-                    {activeFilter} Records
+                    {activeFilter} Division
                   </span>
                 )}
                 {isSubAdmin && filterUser && (
@@ -388,7 +300,6 @@ export default function Dashboard({ setActivePage }) {
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">FEXT</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Noise</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Armor</th>
-                                            <th className="px-3 py-2 text-center font-semibold text-slate-500">Condition</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Remark</th>
                                           </tr>
                                         </thead>
@@ -406,11 +317,6 @@ export default function Dashboard({ setActivePage }) {
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.fext || '—'}</td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.noiseLevel || '—'}</td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.armerContinuity || '—'}</td>
-                                              <td className="px-3 py-1.5 text-center">
-                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                                  {q.condition || 'Good'}
-                                                </span>
-                                              </td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono truncate max-w-[150px]" title={q.remark || ''}>{q.remark || '—'}</td>
                                             </tr>
                                           ))}
@@ -423,9 +329,6 @@ export default function Dashboard({ setActivePage }) {
                                         <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
                                           <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                                             <span className="font-bold text-navy-900 font-mono">Quad {q.quadNo}</span>
-                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                              {q.condition || 'Good'}
-                                            </span>
                                           </div>
                                           <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                             <div className="flex justify-between"><span className="text-slate-400">Loop Res:</span> <span className="font-mono">{q.loopResistance || '—'}</span></div>

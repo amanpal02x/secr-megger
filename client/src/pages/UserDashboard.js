@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getStats, getEntries, getEntry } from '../utils/api';
-import ConditionBadge from '../components/ConditionBadge';
+import HealthSummaryCards from '../components/HealthSummaryCards';
 
 export default function UserDashboard({ setActivePage }) {
   const [recent, setRecent] = useState([]);
@@ -83,7 +83,10 @@ export default function UserDashboard({ setActivePage }) {
             </div>
           </div>
 
-          {}
+          {/* Health Summary Cards */}
+          <HealthSummaryCards entries={allEntries} />
+
+          {/* Recent Submissions Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-navy-900">
@@ -153,7 +156,6 @@ export default function UserDashboard({ setActivePage }) {
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">FEXT</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Noise</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Armor</th>
-                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">Condition</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Remark</th>
                                         </tr>
                                       </thead>
@@ -171,11 +173,6 @@ export default function UserDashboard({ setActivePage }) {
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.fext || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.noiseLevel || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.armerContinuity || '—'}</td>
-                                            <td className="px-3 py-1.5 text-center">
-                                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                                {q.condition || 'Good'}
-                                              </span>
-                                            </td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono truncate max-w-[150px]" title={q.remark || ''}>{q.remark || '—'}</td>
                                           </tr>
                                         ))}
@@ -188,9 +185,6 @@ export default function UserDashboard({ setActivePage }) {
                                       <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
                                         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                                           <span className="font-bold text-navy-900 font-mono">Quad {q.quadNo}</span>
-                                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                            {q.condition || 'Good'}
-                                          </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                           <div className="flex justify-between"><span className="text-slate-400">Loop Res:</span> <span className="font-mono">{q.loopResistance || '—'}</span></div>

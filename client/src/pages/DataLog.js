@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { getEntries, getEntry, deleteEntry, getDivisions } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-import ConditionBadge from '../components/ConditionBadge';
+import HealthSummaryCards from '../components/HealthSummaryCards';
+import { getQuadCondition } from '../utils/conditionUtils';
 import * as XLSX from 'xlsx';
 
 export default function DataLog({ showToast }) {
@@ -87,7 +88,7 @@ export default function DataLog({ showToast }) {
           'FEXT': q.fext || '',
           'Noise Level': q.noiseLevel || '',
           'Armor Continuity': q.armerContinuity || '',
-          'Condition': q.condition || 'Good',
+          'Condition': getQuadCondition(q),
           'Remark': q.remark || ''
         });
       });
@@ -275,8 +276,11 @@ export default function DataLog({ showToast }) {
       </div>
 
       {/* Table Section */}
-      <div className="flex-1 p-4 md:p-8">
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex-1 p-4 md:p-8">
+          {/* Health Summary Cards */}
+          <HealthSummaryCards entries={entries} />
+
+          <div className="mt-4 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center gap-3 py-16 text-slate-400 text-sm">
               <div className="w-6 h-6 border-2 border-slate-200 border-t-navy-600 rounded-full animate-spin" />
@@ -385,7 +389,6 @@ export default function DataLog({ showToast }) {
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">FEXT</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Noise</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Armor</th>
-                                          <th className="px-3 py-2 text-center font-semibold text-slate-500">Condition</th>
                                           <th className="px-3 py-2 text-center font-semibold text-slate-500">Remark</th>
                                         </tr>
                                       </thead>
@@ -403,11 +406,6 @@ export default function DataLog({ showToast }) {
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.fext || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.noiseLevel || '—'}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.armerContinuity || '—'}</td>
-                                            <td className="px-3 py-1.5 text-center">
-                                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                                {q.condition || 'Good'}
-                                              </span>
-                                            </td>
                                             <td className="px-3 py-1.5 text-center text-slate-600 font-mono truncate max-w-[150px]" title={q.remark || ''}>{q.remark || '—'}</td>
                                           </tr>
                                         ))}
@@ -421,9 +419,6 @@ export default function DataLog({ showToast }) {
                                       <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
                                         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                                           <span className="font-bold text-navy-900 font-mono">Quad {q.quadNo}</span>
-                                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                            {q.condition || 'Good'}
-                                          </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                           <div className="flex justify-between"><span className="text-slate-400">Loop Res:</span> <span className="font-mono">{q.loopResistance || '—'}</span></div>
