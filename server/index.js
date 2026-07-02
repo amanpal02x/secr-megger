@@ -1474,6 +1474,102 @@ app.post('/api/admin/generate-api-key', protect, adminOnly, async (req, res) => 
   }
 });
 
+// --- EXTERNAL INTEGRATION: DP&AM LINK --- //
+app.post('/api/external/verify-user', async (req, res) => {
+  const apiKey = req.headers['x-dpam-key'];
+  if (!apiKey || apiKey !== process.env.DPAM_API_KEY) {
+    return res.status(401).json({ message: 'Unauthorized external access' });
+  }
+
+  const { mobile } = req.body;
+  if (!mobile) return res.status(400).json({ message: 'Mobile number is required' });
+
+  // Clean the mobile number to get the last 10 digits
+  const cleanMobile = String(mobile).replace(/[^0-9]/g, '').slice(-10);
+
+  try {
+    const user = await User.findOne({
+      phoneNumber: new RegExp(cleanMobile + '$')
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found in Megger' });
+    }
+    res.json({
+      success: true,
+      userId: user._id,
+      name: user.name,
+      phoneNumber: user.phoneNumber,
+      role: user.role
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.post('/api/external/entries', async (req, res) => {
+  const apiKey = req.headers['x-dpam-key'];
+  if (!apiKey || apiKey !== process.env.DPAM_API_KEY) {
+    return res.status(401).json({ message: 'Unauthorized external access' });
+  }
+
+  const { mobile, entryData } = req.body;
+  if (!mobile) return res.status(400).json({ message: 'Mobile number is required' });
+
+  const cleanMobile = String(mobile).replace(/[^0-9]/g, '').slice(-10);
+
+  try {
+    const user = await User.findOne({
+      phoneNumber: new RegExp(cleanMobile + '$')
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found in Megger' });
+    }
+
+    // Determine condition from quadReadings
+    let worstCondition = 'Good';
+    if (entryData.quadReadings && Array.isArray(entryData.quadReadings)) {
+      entryData.quadReadings.forEach(q => {
+        if (q.condition === 'Bad') {
+          worstCondition = 'Bad';
+        } else if (!q.condition) {
+          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+          readings.forEach(r => {
+            if (!r) return;
+            const val = parseFloat(r.replace(/[^\d.]/g, ''));
+            if (!isNaN(val) && val < 10) {
+              worstCondition = 'Bad';
+            }
+          });
+        }
+      });
+    }
+
+    const entry = await Entry.create({
+      id: uuidv4(),
+      divisionId: standardizeString(entryData.divisionId || '').toUpperCase(),
+      divisionName: standardizeString(entryData.divisionName || '').toUpperCase(),
+      majorSectionId: standardizeMajorSection(entryData.majorSectionId || ''),
+      majorSectionName: standardizeMajorSection(entryData.majorSectionName || ''),
+      sectionId: standardizeString(entryData.sectionId || ''),
+      sectionName: standardizeString(entryData.sectionName || ''),
+      quadReadings: entryData.quadReadings || [],
+      condition: worstCondition,
+      remarks: entryData.remarks || '',
+      userName: user.name,
+      technicianName: user.name,
+      userId: user._id,
+      supervisorName: entryData.supervisorName || '',
+      testDate: entryData.testDate || new Date().toISOString().split('T')[0],
+      attachment: entryData.attachment || ''
+    });
+
+    res.status(201).json({ success: true, entryId: entry.id });
+  } catch (err) {
+    console.error('Error creating external entry:', err);
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+});
+
 const startServer = () => {
   app.listen(PORT, () => {
     console.log(`SECR Megger Server running on http://localhost:${PORT}`);
