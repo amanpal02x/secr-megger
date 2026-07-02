@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getEntries, getLocations, getEntry } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import HealthSummaryCards from '../components/HealthSummaryCards';
+import { getEntryCondition } from '../utils/conditionUtils';
 
 function StatCard({ value, label, sub, barClass, valueClass, isActive, onClick }) {
   const activeStyles = isActive 
@@ -101,7 +103,7 @@ export default function Dashboard({ setActivePage }) {
   const filteredEntries = allEntries.filter(e => {
     if (isGlobalAdmin) {
       if (activeFilter === 'total') return true;
-      return e.divisionId === activeFilter || e.divisionName === activeFilter;
+      return getEntryCondition(e).toLowerCase() === activeFilter.toLowerCase();
     } else if (isSubAdmin) {
       if (filterUser) {
         const userId = e.userId?._id || e.userId || e.userName || e.technicianName || 'unknown';
@@ -126,44 +128,11 @@ export default function Dashboard({ setActivePage }) {
       <div className="p-4 md:p-8 space-y-6">
         {/* KPI Cards Grid */}
         {isGlobalAdmin && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard 
-              value={totalCount} 
-              label="Total Tests" 
-              sub="All divisions" 
-              barClass="bg-navy-600" 
-              valueClass="text-navy-700" 
-              isActive={activeFilter === 'total'}
-              onClick={() => setActiveFilter('total')}
-            />
-            <StatCard 
-              value={bspCount} 
-              label="Bilaspur (BSP)" 
-              sub="BSP records" 
-              barClass="bg-blue-600" 
-              valueClass="text-blue-700" 
-              isActive={activeFilter === 'BSP'}
-              onClick={() => setActiveFilter('BSP')}
-            />
-            <StatCard 
-              value={ngpCount} 
-              label="Nagpur (NGP)" 
-              sub="NGP records" 
-              barClass="bg-teal-600" 
-              valueClass="text-teal-700" 
-              isActive={activeFilter === 'NGP'}
-              onClick={() => setActiveFilter('NGP')}
-            />
-            <StatCard 
-              value={rCount} 
-              label="Raipur (R)" 
-              sub="Raipur records" 
-              barClass="bg-purple-600" 
-              valueClass="text-purple-700" 
-              isActive={activeFilter === 'R'}
-              onClick={() => setActiveFilter('R')}
-            />
-          </div>
+          <HealthSummaryCards 
+            entries={allEntries} 
+            activeFilter={activeFilter} 
+            onCardClick={setActiveFilter} 
+          />
         )}
 
         {isSubAdmin && (
@@ -216,6 +185,11 @@ export default function Dashboard({ setActivePage }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Health Summary Cards (only for Sub Admins) */}
+        {!isGlobalAdmin && (
+          <HealthSummaryCards entries={allEntries} />
         )}
 
         <div className="space-y-5 items-start">
@@ -326,7 +300,6 @@ export default function Dashboard({ setActivePage }) {
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">FEXT</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Noise</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Armor</th>
-                                            <th className="px-3 py-2 text-center font-semibold text-slate-500">Condition</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-500">Remark</th>
                                           </tr>
                                         </thead>
@@ -344,11 +317,6 @@ export default function Dashboard({ setActivePage }) {
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.fext || '—'}</td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.noiseLevel || '—'}</td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono">{q.armerContinuity || '—'}</td>
-                                              <td className="px-3 py-1.5 text-center">
-                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                                  {q.condition || 'Good'}
-                                                </span>
-                                              </td>
                                               <td className="px-3 py-1.5 text-center text-slate-600 font-mono truncate max-w-[150px]" title={q.remark || ''}>{q.remark || '—'}</td>
                                             </tr>
                                           ))}
@@ -361,9 +329,6 @@ export default function Dashboard({ setActivePage }) {
                                         <div key={q.quadNo} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs">
                                           <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                                             <span className="font-bold text-navy-900 font-mono">Quad {q.quadNo}</span>
-                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${q.condition === 'Bad' ? 'bg-red-50 text-red-700 border border-red-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
-                                              {q.condition || 'Good'}
-                                            </span>
                                           </div>
                                           <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                             <div className="flex justify-between"><span className="text-slate-400">Loop Res:</span> <span className="font-mono">{q.loopResistance || '—'}</span></div>

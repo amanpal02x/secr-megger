@@ -20,7 +20,6 @@ const EMPTY_QUAD = {
   fext: '',
   noiseLevel: '',
   armerContinuity: 'OK',
-  condition: '',
   remark: ''
 };
 
@@ -154,15 +153,6 @@ export default function EntryForm({ setActivePage, showToast }) {
         (q.remark && q.remark.trim() !== '')
       );
     };
-
-    const missingConditionQuads = form.quadReadings
-      .filter(q => isQuadFilled(q) && !q.condition)
-      .map(q => q.quadNo);
-
-    if (missingConditionQuads.length > 0) {
-      showToast(`Please select a condition (Good/Bad) for: ${missingConditionQuads.join(', ')}`, 'error');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -343,7 +333,6 @@ export default function EntryForm({ setActivePage, showToast }) {
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">FEXT (db)</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Noise (V)</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Armor</th>
-                    <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Condition</th>
                     <th className="px-2 py-2.5 text-center font-bold text-slate-600 uppercase bg-amber-50/40 whitespace-nowrap">Remark</th>
                   </tr>
                 </thead>
@@ -383,13 +372,6 @@ export default function EntryForm({ setActivePage, showToast }) {
                           <option>OK</option>
                           <option>Defective</option>
                           <option>Disconn.</option>
-                        </select>
-                      </td>
-                      <td className="px-1 py-1 bg-amber-50/30">
-                        <select className="w-[85px] mx-auto block bg-white border border-amber-300 hover:border-amber-400 focus:border-amber-500 rounded focus:ring-2 focus:ring-amber-500/10 text-sm px-1 py-1.5 font-semibold text-navy-800 outline-none transition-all duration-150" value={q.condition} onChange={e => updateQuad(idx, 'condition', e.target.value)}>
-                          <option value="">Select</option>
-                          <option value="Good">Good</option>
-                          <option value="Bad">Bad</option>
                         </select>
                       </td>
                       <td className="px-1 py-1 bg-amber-50/30">

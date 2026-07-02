@@ -1,10 +1,12 @@
 import React from 'react';
 
 const styles = {
-  Good:     'bg-green-50 text-green-800 border-green-200',
-  Fair:     'bg-amber-50 text-amber-800 border-amber-200',
-  Poor:     'bg-red-50 text-red-700 border-red-200',
-  Critical: 'bg-red-100 text-red-900 border-red-400 font-semibold',
+  Excellent: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold',
+  Good:      'bg-blue-50 text-blue-800 border-blue-200',
+  Critical:  'bg-red-100 text-red-900 border-red-400 font-semibold',
+  // Legacy styles kept for backward compatibility
+  Fair:      'bg-amber-50 text-amber-800 border-amber-200',
+  Poor:      'bg-red-50 text-red-700 border-red-200',
 };
 
 export default function ConditionBadge({ condition }) {
