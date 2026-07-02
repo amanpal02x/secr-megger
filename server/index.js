@@ -452,7 +452,8 @@ app.get('/api/entries/:id', protect, async (req, res) => {
     const entry = await Entry.findOne({ id: req.params.id }).populate('userId', 'name phoneNumber');
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
-    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
+    const ownerId = entry.userId._id ? entry.userId._id.toString() : entry.userId.toString();
+    if (req.user.role === 'user' && ownerId !== req.user._id.toString()) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
     if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
@@ -1567,6 +1568,42 @@ app.post('/api/external/entries', async (req, res) => {
     res.status(201).json({ success: true, entryId: entry.id });
   } catch (err) {
     console.error('Error creating external entry:', err);
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+});
+
+app.get('/api/external/latest-entry', async (req, res) => {
+  const apiKey = req.headers['x-dpam-key'];
+  if (!apiKey || apiKey !== process.env.DPAM_API_KEY) {
+    return res.status(401).json({ message: 'Unauthorized external access' });
+  }
+
+  const { mobile, sectionName } = req.query;
+  if (!mobile) return res.status(400).json({ message: 'Mobile number is required' });
+
+  const cleanMobile = String(mobile).replace(/[^0-9]/g, '').slice(-10);
+
+  try {
+    const user = await User.findOne({
+      phoneNumber: new RegExp(cleanMobile + '$')
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found in Megger' });
+    }
+
+    const query = {
+      userId: user._id
+    };
+    if (sectionName) {
+      query.sectionName = sectionName;
+    }
+
+    const latestEntry = await Entry.findOne(query)
+      .sort({ createdAt: -1 })
+      .select('-attachment');
+
+    res.json({ success: true, entry: latestEntry });
+  } catch (err) {
     res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 });
