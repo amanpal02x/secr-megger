@@ -74,6 +74,20 @@ function MainApp() {
     const appName = "Megger";
     const subdomain = "megger";
     const origin = window.location.origin;
+
+    // ── LOOP GUARD ──
+    const now = Date.now();
+    const redirectTs = parseInt(sessionStorage.getItem('_megger_redirect_ts') || '0');
+    const redirectCount = parseInt(sessionStorage.getItem('_megger_redirect_count') || '0');
+
+    if (redirectTs > 0 && (now - redirectTs) < 30000 && redirectCount >= 3) {
+      // Loop detected — let the AuthContext error UI handle it, don't redirect again
+      return null;
+    }
+
+    const newCount = (redirectTs > 0 && (now - redirectTs) < 30000) ? redirectCount + 1 : 1;
+    sessionStorage.setItem('_megger_redirect_ts', String(now));
+    sessionStorage.setItem('_megger_redirect_count', String(newCount));
     
     // Clean path to prevent redirect loops containing authentication tokens
     const urlParams = new URLSearchParams(window.location.search);
