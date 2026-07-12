@@ -18,11 +18,14 @@ export function AuthProvider({ children }) {
   // Initialize session from Supabase shared cookie on mount
   useEffect(() => {
     const initSupabase = async () => {
+      console.log("[AuthContext] Initializing Supabase session from cookies...");
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log("[AuthContext] Session found! Token prefix:", session.access_token.substring(0, 15));
         localStorage.setItem('token', session.access_token);
         setToken(session.access_token);
       } else {
+        console.log("[AuthContext] No Supabase session cookie discovered.");
         localStorage.removeItem('token');
         setToken(null);
         setDbUser(null);
@@ -35,6 +38,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const verifyToken = async () => {
       if (token) {
+        console.log("[AuthContext] Verifying token with backend:", `${API_BASE_URL}/api/auth/me`);
         try {
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
@@ -42,14 +46,18 @@ export function AuthProvider({ children }) {
             }
           });
           
+          console.log("[AuthContext] Backend response status:", response.status);
           if (response.ok) {
             const data = await response.json();
+            console.log("[AuthContext] Token verification succeeded. User:", data.email || data.phoneNumber);
             setDbUser(data);
           } else {
+            const errText = await response.text();
+            console.error("[AuthContext] Verification failed on backend:", response.status, errText);
             logout();
           }
         } catch (error) {
-          console.error("Auth verification failed:", error);
+          console.error("[AuthContext] Auth verification connection failed:", error);
           logout();
         }
       }
