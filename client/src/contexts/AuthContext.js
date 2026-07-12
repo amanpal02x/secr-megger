@@ -20,8 +20,33 @@ export function AuthProvider({ children }) {
     const initSupabase = async () => {
       let { data: { session } } = await supabase.auth.getSession();
       
-      // Robust fallback: if Supabase fails to read the stripped session cookie,
-      // extract the access_token and refresh_token directly from document.cookie and set it manually.
+      // High-priority fallback: check URL query parameters for access_token and refresh_token
+      if (!session) {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlAccessToken = urlParams.get('access_token');
+          const urlRefreshToken = urlParams.get('refresh_token');
+          
+          if (urlAccessToken && urlRefreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: urlAccessToken,
+              refresh_token: urlRefreshToken
+            });
+            if (!error) {
+              session = data.session;
+              urlParams.delete('access_token');
+              urlParams.delete('refresh_token');
+              const cleanSearch = urlParams.toString();
+              const cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
+              window.history.replaceState({}, '', cleanUrl);
+            }
+          }
+        } catch (urlErr) {
+          console.error("URL session restore failed:", urlErr);
+        }
+      }
+
+      // Secondary fallback: cookie parsing
       if (!session) {
         try {
           const cookieName = 'sb-qfjerdspejaapggtvtwu-auth-token=';
