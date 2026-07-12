@@ -115,14 +115,20 @@ export function AuthProvider({ children }) {
             const data = await response.json();
             setDbUser(data);
           } else {
-            logout();
+            clearSession();
           }
         } catch (error) {
           console.error("Auth verification failed:", error);
-          logout();
+          clearSession();
         }
       }
       setLoading(false);
+    };
+
+    const clearSession = () => {
+      localStorage.removeItem('token');
+      setToken(null);
+      setDbUser(null);
     };
 
     if (token !== null) {
