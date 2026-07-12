@@ -62,7 +62,15 @@ const protect = async (req, res, next) => {
 
       let user = null;
       if (userEmail) {
-        user = await User.findOne({ email: userEmail });
+        const usernamePrefix = userEmail.includes('@') ? userEmail.split('@')[0] : userEmail;
+        user = await User.findOne({
+          $or: [
+            { email: userEmail },
+            { username: userEmail },
+            { email: usernamePrefix },
+            { username: usernamePrefix }
+          ]
+        });
       }
       if (!user && userPhone) {
         user = await User.findOne({ phoneNumber: new RegExp(userPhone + '$') });
