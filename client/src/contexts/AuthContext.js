@@ -19,7 +19,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initSupabase = async () => {
       console.log("[AuthContext] Initializing Supabase session from cookies...");
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      
+      // Fallback: If session is null (which can happen because we stripped user metadata from cookies),
+      // fetch user profile directly from Supabase API to rebuild session.
+      if (!session) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase.auth.getSession();
+          session = data.session;
+        }
+      }
+
       if (session) {
         console.log("[AuthContext] Session found! Token prefix:", session.access_token.substring(0, 15));
         localStorage.setItem('token', session.access_token);
