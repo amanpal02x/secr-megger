@@ -71,7 +71,12 @@ function MainApp() {
   }
 
   if (!dbUser) {
-    return <Login />;
+    const appName = "Megger";
+    const subdomain = "megger";
+    const origin = window.location.origin;
+    const path = window.location.pathname + window.location.search + window.location.hash;
+    window.location.href = `https://secrtelecom.com/login?app=${encodeURIComponent(appName)}&subdomain=${subdomain}&path=${encodeURIComponent(path)}&redirect_to=${encodeURIComponent(origin)}`;
+    return null;
   }
 
   const renderPage = () => {

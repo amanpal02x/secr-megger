@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../utils/supabaseClient';
 
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
@@ -12,7 +13,24 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(null);
+
+  // Initialize session from Supabase shared cookie on mount
+  useEffect(() => {
+    const initSupabase = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        localStorage.setItem('token', session.access_token);
+        setToken(session.access_token);
+      } else {
+        localStorage.removeItem('token');
+        setToken(null);
+        setDbUser(null);
+        setLoading(false);
+      }
+    };
+    initSupabase();
+  }, []);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -28,7 +46,6 @@ export function AuthProvider({ children }) {
             const data = await response.json();
             setDbUser(data);
           } else {
-
             logout();
           }
         } catch (error) {
@@ -39,7 +56,9 @@ export function AuthProvider({ children }) {
       setLoading(false);
     };
 
-    verifyToken();
+    if (token !== null) {
+      verifyToken();
+    }
   }, [token]);
 
   const login = async (email, password) => {
@@ -125,7 +144,12 @@ export function AuthProvider({ children }) {
 
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Supabase sign out error:", e);
+    }
     localStorage.removeItem('token');
     setToken(null);
     setDbUser(null);
