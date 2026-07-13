@@ -100,6 +100,12 @@ export function AuthProvider({ children }) {
         setToken(null);
         setDbUser(null);
 
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
+          setLoading(false);
+          return;
+        }
+
         // ── LOOP GUARD ──
         const now = Date.now();
         const redirectTs = parseInt(sessionStorage.getItem('_megger_redirect_ts') || '0');
