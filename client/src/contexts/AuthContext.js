@@ -263,6 +263,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:#f8fafc;color:#1e293b;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:system-ui, -apple-system, sans-serif;font-size:16px;font-weight:600;";
+    overlay.innerText = "Logging out...";
+    document.body.appendChild(overlay);
+
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -271,6 +276,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     setToken(null);
     setDbUser(null);
+    window.location.href = `https://secrtelecom.com/login?app=Megger&subdomain=megger&redirect_to=${encodeURIComponent(window.location.origin)}`;
   };
 
   const updateUserProfile = (userData) => {
