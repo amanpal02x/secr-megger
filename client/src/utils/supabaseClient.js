@@ -22,7 +22,9 @@ const customCookieStorage = {
   },
   setItem(key, value) {
     const encoded = encodeURIComponent(value);
-    document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;SameSite=Lax;Secure`;
+    const maxAge = 365 * 24 * 60 * 60; // 1 year persistence
+    document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
+    document.cookie = `${key}=${encoded};path=/;domain=secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
   },
   removeItem(key) {
     document.cookie = `${key}=;path=/;domain=.secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
