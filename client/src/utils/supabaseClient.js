@@ -21,15 +21,8 @@ const customCookieStorage = {
     return null;
   },
   setItem(key, value) {
-    let valueToStore = value;
-    if (key.endsWith('-auth-token')) {
-      try {
-        const parsed = JSON.parse(value);
-        if (parsed.user) delete parsed.user;
-        valueToStore = JSON.stringify(parsed);
-      } catch (e) {}
-    }
-    document.cookie = `${key}=${encodeURIComponent(valueToStore)};path=/;domain=.secrtelecom.com;SameSite=Lax;Secure`;
+    const encoded = encodeURIComponent(value);
+    document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;SameSite=Lax;Secure`;
   },
   removeItem(key) {
     document.cookie = `${key}=;path=/;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
