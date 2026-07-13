@@ -13,7 +13,7 @@ import Locations from './pages/Locations';
 
 
 function MainApp() {
-  const { dbUser, loading } = useAuth();
+  const { dbUser, loading, isForbidden } = useAuth();
   const [page, setPage] = useState('');
   const [toast, setToast] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -68,6 +68,29 @@ function MainApp() {
 
   if (loading) {
     return <div className="h-screen flex items-center justify-center bg-slate-100 font-bold text-navy-500 text-center p-4">Loading App...</div>;
+  }
+
+  if (isForbidden) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center',
+        height: '100vh', width: '100vw', background: '#f8fafc', color: '#1e293b',
+        fontFamily: 'system-ui, -apple-system, sans-serif', padding: '20px', textAlign: 'center', gap: '16px'
+      }}>
+        <p style={{ fontSize: '15px', color: '#64748b', margin: 0 }}>
+          Access denied for Meggering. Please contact your administrator to gain access.
+        </p>
+        <button 
+          onClick={() => window.location.href = "https://secrtelecom.com"}
+          style={{
+            background: '#0076c0', color: '#fff', border: 'none', padding: '10px 22px', 
+            borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '14px'
+          }}
+        >
+          Go Back
+        </button>
+      </div>
+    );
   }
 
   if (!dbUser) {

@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [isForbidden, setIsForbidden] = useState(false);
 
   // Initialize session from Supabase shared cookie on mount
   useEffect(() => {
@@ -154,6 +155,8 @@ export function AuthProvider({ children }) {
           if (response.ok) {
             const data = await response.json();
             setDbUser(data);
+          } else if (response.status === 403) {
+            setIsForbidden(true);
           } else {
             clearSession();
           }
@@ -281,6 +284,7 @@ export function AuthProvider({ children }) {
     dbUser,
     token,
     loading,
+    isForbidden,
     login,
     sendOtp,
     loginWithOtp,
