@@ -25,6 +25,8 @@ const customCookieStorage = {
     document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;SameSite=Lax;Secure`;
   },
   removeItem(key) {
+    document.cookie = `${key}=;path=/;domain=.secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
+    document.cookie = `${key}=;path=/;domain=secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
     document.cookie = `${key}=;path=/;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
   }
 };
