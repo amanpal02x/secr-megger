@@ -523,18 +523,24 @@ app.post('/api/entries', protect, async (req, res) => {
 
     let worstCondition = 'Good';
     if (quadReadings && Array.isArray(quadReadings)) {
+      const priority = { 'Extremely Critical': 4, Critical: 3, Good: 2, Excellent: 1 };
       quadReadings.forEach(q => {
-        if (q.condition === 'Bad') {
-          worstCondition = 'Bad';
-        } else if (!q.condition) {
-          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
-          readings.forEach(r => {
-            if (!r) return;
-            const val = parseFloat(r.replace(/[^\d.]/g, ''));
-            if (!isNaN(val) && val < 10) {
-              worstCondition = 'Bad';
-            }
-          });
+        const raw = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+        const numeric = raw
+          .map(v => {
+            if (v === null || v === undefined || v === '' || v === '-' || v === '—') return null;
+            const n = parseFloat(String(v).replace(/[^\d.]/g, ''));
+            return isNaN(n) ? null : n;
+          })
+          .filter(v => v !== null);
+
+        let qCond = 'Good';
+        if (numeric.some(v => v <= 10)) qCond = 'Extremely Critical';
+        else if (numeric.some(v => v < 20)) qCond = 'Critical';
+        else if (numeric.length > 0 && numeric.every(v => v === 100)) qCond = 'Excellent';
+
+        if ((priority[qCond] || 0) > (priority[worstCondition] || 0)) {
+          worstCondition = qCond;
         }
       });
     }
@@ -635,18 +641,24 @@ app.post('/api/entries/bulk', protect, async (req, res) => {
       const quadReadings = entry.quadReadings;
 
       if (quadReadings && Array.isArray(quadReadings)) {
+        const priority = { 'Extremely Critical': 4, Critical: 3, Good: 2, Excellent: 1 };
         quadReadings.forEach(q => {
-          if (q.condition === 'Bad') {
-            worstCondition = 'Bad';
-          } else if (!q.condition) {
-            const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
-            readings.forEach(r => {
-              if (!r) return;
-              const val = parseFloat(r.replace(/[^\d.]/g, ''));
-              if (!isNaN(val) && val < 10) {
-                worstCondition = 'Bad';
-              }
-            });
+          const raw = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+          const numeric = raw
+            .map(v => {
+              if (v === null || v === undefined || v === '' || v === '-' || v === '—') return null;
+              const n = parseFloat(String(v).replace(/[^\d.]/g, ''));
+              return isNaN(n) ? null : n;
+            })
+            .filter(v => v !== null);
+
+          let qCond = 'Good';
+          if (numeric.some(v => v <= 10)) qCond = 'Extremely Critical';
+          else if (numeric.some(v => v < 20)) qCond = 'Critical';
+          else if (numeric.length > 0 && numeric.every(v => v === 100)) qCond = 'Excellent';
+
+          if ((priority[qCond] || 0) > (priority[worstCondition] || 0)) {
+            worstCondition = qCond;
           }
         });
       }
@@ -688,15 +700,16 @@ app.get('/api/stats', authorize, async (req, res) => {
     }
 
 
-    const [total, good, fair, poor, critical] = await Promise.all([
+    const [total, good, fair, poor, critical, extremelyCritical] = await Promise.all([
       Entry.countDocuments(query),
       Entry.countDocuments({ ...query, condition: 'Good' }),
       Entry.countDocuments({ ...query, condition: 'Fair' }),
       Entry.countDocuments({ ...query, condition: 'Poor' }),
-      Entry.countDocuments({ ...query, condition: 'Critical' })
+      Entry.countDocuments({ ...query, condition: 'Critical' }),
+      Entry.countDocuments({ ...query, condition: 'Extremely Critical' })
     ]);
 
-    res.json({ total, good, fair, poor, critical });
+    res.json({ total, good, fair, poor, critical, extremelyCritical });
   } catch (error) {
     console.error('Stats query error:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -1530,18 +1543,24 @@ app.post('/api/external/entries', async (req, res) => {
     // Determine condition from quadReadings
     let worstCondition = 'Good';
     if (entryData.quadReadings && Array.isArray(entryData.quadReadings)) {
+      const priority = { 'Extremely Critical': 4, Critical: 3, Good: 2, Excellent: 1 };
       entryData.quadReadings.forEach(q => {
-        if (q.condition === 'Bad') {
-          worstCondition = 'Bad';
-        } else if (!q.condition) {
-          const readings = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
-          readings.forEach(r => {
-            if (!r) return;
-            const val = parseFloat(r.replace(/[^\d.]/g, ''));
-            if (!isNaN(val) && val < 10) {
-              worstCondition = 'Bad';
-            }
-          });
+        const raw = [q.insulationL1E, q.insulationL2E, q.insulationL1L2];
+        const numeric = raw
+          .map(v => {
+            if (v === null || v === undefined || v === '' || v === '-' || v === '—') return null;
+            const n = parseFloat(String(v).replace(/[^\d.]/g, ''));
+            return isNaN(n) ? null : n;
+          })
+          .filter(v => v !== null);
+
+        let qCond = 'Good';
+        if (numeric.some(v => v <= 10)) qCond = 'Extremely Critical';
+        else if (numeric.some(v => v < 20)) qCond = 'Critical';
+        else if (numeric.length > 0 && numeric.every(v => v === 100)) qCond = 'Excellent';
+
+        if ((priority[qCond] || 0) > (priority[worstCondition] || 0)) {
+          worstCondition = qCond;
         }
       });
     }

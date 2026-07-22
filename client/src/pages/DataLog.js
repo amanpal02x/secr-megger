@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { getEntries, getEntry, deleteEntry, getDivisions } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import HealthSummaryCards from '../components/HealthSummaryCards';
-import { getQuadCondition } from '../utils/conditionUtils';
+import { getQuadCondition, getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 import * as XLSX from 'xlsx';
 
 export default function DataLog({ showToast }) {
@@ -69,13 +69,13 @@ export default function DataLog({ showToast }) {
     filteredEntries.forEach((e) => {
       e.quadReadings.forEach((q) => {
         flatData.push({
-          'Date': new Date(e.testDate).toLocaleDateString('en-IN'),
+          'Testing Date': new Date(e.testDate).toLocaleDateString('en-IN'),
           'Division': e.divisionName,
           'Major Section': e.majorSectionName,
           'Section': e.sectionName,
           'Name': e.userName || e.technicianName,
           'Designation': e.supervisorName || '',
-          'Submitted By User': e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—',
+          'Lowest Value Summary': formatLowestMetricText(e),
           'Submission Exact Time': e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—',
           'Quad No': q.quadNo,
           'Loop Resistance (Ω)': q.loopResistance || '',
@@ -152,42 +152,100 @@ export default function DataLog({ showToast }) {
 
   const headers = [
     { label: '#', className: 'hidden md:table-cell' },
-    { label: 'Date', className: '' },
+    { label: 'Testing Date', className: '' },
     { label: 'Division', className: 'hidden sm:table-cell' },
     { label: 'Major Section', className: 'hidden sm:table-cell' },
     { label: 'Section / Description', className: '' },
     { label: 'Name & Designation', className: 'hidden lg:table-cell' },
-    { label: 'Submitted By', className: 'hidden lg:table-cell' },
+    { label: 'Lowest Value Summary', className: 'hidden lg:table-cell' },
     { label: 'Action', className: 'text-right' },
   ];
 
   return (
-    <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
-      {}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6">
-        <div className="inline-flex items-center text-[10px] md:text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
-          SECR / Signal &amp; Telecom
-        </div>
-        <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">Maintenance Data Log</h1>
-        <p className="text-xs md:text-sm text-slate-500 mt-0.5">{filteredEntries.length} register record{filteredEntries.length !== 1 ? 's' : ''} found</p>
-      </div>
-
-      {/* Toolbar / Search Filters */}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 flex-1">
-          <div className="relative flex-1 min-w-[200px]">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input
-              type="text"
-              placeholder="Search section, name…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-navy-900 placeholder:text-slate-400 focus:outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/10"
-            />
+    <div className="flex-1 bg-slate-100 h-full flex flex-col overflow-hidden">
+      {/* Fixed Top Header & Search Filters Toolbar */}
+      <div className="shrink-0 bg-white border-b border-slate-200">
+        <div className="px-4 md:px-8 py-6 border-b border-slate-100">
+          <div className="inline-flex items-center text-[10px] md:text-[11px] font-medium text-navy-600 bg-navy-600/8 border border-navy-600/15 rounded px-2 py-0.5 uppercase tracking-wide mb-2">
+            SECR / Signal &amp; Telecom
           </div>
+          <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">Maintenance Data Log</h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">{filteredEntries.length} register record{filteredEntries.length !== 1 ? 's' : ''} found</p>
+        </div>
 
-          {isGlobalAdmin && (
-            <>
+        {/* Toolbar / Search Filters */}
+        <div className="px-4 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 flex-1">
+            <div className="relative flex-1 min-w-[200px]">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                type="text"
+                placeholder="Search section, name…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-navy-900 placeholder:text-slate-400 focus:outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/10"
+              />
+            </div>
+
+            {isGlobalAdmin && (
+              <>
+                <select
+                  value={filterDiv}
+                  onChange={e => handleDivChange(e.target.value)}
+                  className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[130px] sm:flex-1 md:flex-none"
+                  style={{ paddingRight: '28px', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                  }}
+                >
+                  <option value="">All Divisions</option>
+                  {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+
+                <select
+                  value={filterMajorSec}
+                  onChange={e => handleMajorSecChange(e.target.value)}
+                  className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
+                  style={{ paddingRight: '28px', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                  }}
+                >
+                  <option value="">All Major Sections</option>
+                  {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
+                </select>
+
+                <select
+                  value={filterSec}
+                  onChange={e => setFilterSec(e.target.value)}
+                  className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
+                  style={{ paddingRight: '28px', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                  }}
+                >
+                  <option value="">All Sections</option>
+                  {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </>
+            )}
+
+            {isSubAdmin && (
+              <select
+                value={filterMajorSec}
+                onChange={e => handleMajorSecChange(e.target.value)}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[180px] sm:flex-1 md:flex-none"
+                style={{ paddingRight: '28px', appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
+                }}
+              >
+                <option value="">All Major Sections</option>
+                {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
+              </select>
+            )}
+
+            {!isGlobalAdmin && !isSubAdmin && (
               <select
                 value={filterDiv}
                 onChange={e => handleDivChange(e.target.value)}
@@ -200,101 +258,48 @@ export default function DataLog({ showToast }) {
                 <option value="">All Divisions</option>
                 {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
+            )}
+          </div>
 
-              <select
-                value={filterMajorSec}
-                onChange={e => handleMajorSecChange(e.target.value)}
-                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
-                style={{ paddingRight: '28px', appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-                }}
-              >
-                <option value="">All Major Sections</option>
-                {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
-              </select>
-
-              <select
-                value={filterSec}
-                onChange={e => setFilterSec(e.target.value)}
-                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[150px] sm:flex-1 md:flex-none"
-                style={{ paddingRight: '28px', appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-                }}
-              >
-                <option value="">All Sections</option>
-                {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </>
-          )}
-
-          {isSubAdmin && (
-            <select
-              value={filterMajorSec}
-              onChange={e => handleMajorSecChange(e.target.value)}
-              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[180px] sm:flex-1 md:flex-none"
-              style={{ paddingRight: '28px', appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-              }}
-            >
-              <option value="">All Major Sections</option>
-              {uniqueMajorSections.map(ms => <option key={ms} value={ms}>{ms}</option>)}
-            </select>
-          )}
-
-          {!isGlobalAdmin && !isSubAdmin && (
-            <select
-              value={filterDiv}
-              onChange={e => handleDivChange(e.target.value)}
-              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-navy-900 focus:outline-none focus:border-navy-500 form-select-arrow min-w-[130px] sm:flex-1 md:flex-none"
-              style={{ paddingRight: '28px', appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6480' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-              }}
-            >
-              <option value="">All Divisions</option>
-              {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!isGlobalAdmin && !isSubAdmin && (
-            <button onClick={load} className="flex-grow sm:flex-none flex items-center justify-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Refresh
+          <div className="flex items-center gap-2">
+            {!isGlobalAdmin && !isSubAdmin && (
+              <button onClick={load} className="flex-grow sm:flex-none flex items-center justify-center gap-2 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Refresh
+              </button>
+            )}
+            <button onClick={handleExport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span className="hidden sm:inline">Export Report</span>
+              <span className="sm:hidden">Excel</span>
             </button>
-          )}
-          <button onClick={handleExport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span className="hidden sm:inline">Export Report</span>
-            <span className="sm:hidden">Excel</span>
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Table Section */}
-        <div className="flex-1 p-4 md:p-8">
-          {/* Health Summary Cards */}
+      {/* Main Content Area */}
+      <div className="flex-1 p-4 md:p-8 flex flex-col space-y-4 min-h-0 overflow-hidden">
+        {/* Health Summary Cards (Fixed) */}
+        <div className="shrink-0">
           <HealthSummaryCards entries={entries} />
+        </div>
 
-          <div className="mt-4 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        {/* Scrollable Records Table Container */}
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center gap-3 py-16 text-slate-400 text-sm">
+            <div className="flex-1 flex items-center justify-center gap-3 py-16 text-slate-400 text-sm">
               <div className="w-6 h-6 border-2 border-slate-200 border-t-navy-600 rounded-full animate-spin" />
               Loading records…
             </div>
           ) : filteredEntries.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-slate-400 text-sm text-center">
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-slate-400 text-sm text-center">
               <svg className="w-10 h-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               <p>No records found{search || filterDiv || filterMajorSec || filterSec ? ' for the selected filters.' : '.'}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto scrollbar-thin">
+            <div className="flex-1 overflow-auto scrollbar-thin">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-sm">
                   <tr className="bg-slate-50 border-b border-slate-200">
                     {headers.map((h, index) => (
                       <th 
@@ -333,8 +338,23 @@ export default function DataLog({ showToast }) {
                             <div className="text-[10px] text-slate-400 font-medium">{e.supervisorName}</div>
                           )}
                         </td>
-                        <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap hidden lg:table-cell">
-                          {e.userId?.name || e.submittedBy || '—'}
+                        <td className="px-3.5 py-3 text-xs whitespace-nowrap hidden lg:table-cell">
+                          {(() => {
+                            const lowest = getLowestMetric(e);
+                            if (!lowest) return <span className="text-slate-400 font-mono">—</span>;
+                            let badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                            if (lowest.value < 20) {
+                              badgeColor = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
+                            } else if (lowest.value < 100) {
+                              badgeColor = 'bg-amber-50 text-amber-800 border-amber-200 font-semibold';
+                            }
+                            return (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border ${badgeColor}`}>
+                                <span className="font-bold">{lowest.metric}: {lowest.rawValue} MΩ</span>
+                                <span className="opacity-75 text-[10px]">({lowest.quadNo})</span>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3.5 py-3 text-right" onClick={ev => ev.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
@@ -448,7 +468,7 @@ export default function DataLog({ showToast }) {
                                       ['Designation', e.supervisorName || '—'],
                                       ['Name', e.userName || e.technicianName],
                                       ['Recorded On', e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
-                                      ['Submitted By User', e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—'],
+                                      ['Lowest Value Summary', formatLowestMetricText(e)],
                                     ].map(([k, v]) => (
                                       <div key={k}>
                                         <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">{k}</p>

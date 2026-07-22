@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getEntries, getLocations, getEntry } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import HealthSummaryCards from '../components/HealthSummaryCards';
-import { getEntryCondition } from '../utils/conditionUtils';
+import { getEntryCondition, getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 
 function StatCard({ value, label, sub, barClass, valueClass, isActive, onClick }) {
   const activeStyles = isActive 
@@ -103,7 +103,9 @@ export default function Dashboard({ setActivePage }) {
   const filteredEntries = allEntries.filter(e => {
     if (isGlobalAdmin) {
       if (activeFilter === 'total') return true;
-      return getEntryCondition(e).toLowerCase() === activeFilter.toLowerCase();
+      const condNorm = getEntryCondition(e).toLowerCase().replace(/[\s_]+/g, '');
+      const filterNorm = activeFilter.toLowerCase().replace(/[\s_]+/g, '');
+      return condNorm === filterNorm;
     } else if (isSubAdmin) {
       if (filterUser) {
         const userId = e.userId?._id || e.userId || e.userName || e.technicianName || 'unknown';
@@ -117,84 +119,86 @@ export default function Dashboard({ setActivePage }) {
   const recent = filteredEntries.slice(0, 8);
 
   return (
-    <div className="flex-1 bg-slate-100 min-h-screen">
-      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="flex-1 bg-slate-100 h-full flex flex-col overflow-hidden">
+      <div className="shrink-0 bg-white border-b border-slate-200 px-4 md:px-8 py-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-navy-900 tracking-tight">Admin Dashboard</h1>
           <p className="text-xs md:text-sm text-slate-500 mt-0.5">6-Quad Cable Megger Maintenance Overview</p>
         </div>
       </div>
 
-      <div className="p-4 md:p-8 space-y-6">
-        {/* KPI Cards Grid */}
-        {isGlobalAdmin && (
-          <HealthSummaryCards 
-            entries={allEntries} 
-            activeFilter={activeFilter} 
-            onCardClick={setActiveFilter} 
-          />
-        )}
-
-        {isSubAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-            <StatCard 
-              value={totalCount} 
-              label="Total Tests" 
-              sub={`Division: ${subAdminDiv}`} 
-              barClass="bg-navy-600" 
-              valueClass="text-navy-700" 
-              isActive={!filterUser}
-              onClick={() => setFilterUser(null)}
+      <div className="flex-1 p-4 md:p-8 flex flex-col space-y-6 min-h-0 overflow-hidden">
+        {/* KPI Cards Grid Section (Fixed / Non-shrinking) */}
+        <div className="shrink-0 space-y-6">
+          {isGlobalAdmin && (
+            <HealthSummaryCards 
+              entries={allEntries} 
+              activeFilter={activeFilter} 
+              onCardClick={setActiveFilter} 
             />
-            <div 
-              onClick={() => {
-                setPendingSearch('');
-                setShowPendingModal(true);
-              }}
-              className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden h-[130px] md:h-[138px] cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300 transition-all duration-200"
-            >
-              <div className="h-1 w-full bg-amber-500" />
-              <div className="p-3 md:p-5 flex flex-col justify-center">
-                <div className="text-2xl md:text-3xl font-semibold text-amber-700 leading-none mb-1.5 md:mb-2">
-                  {pendingSectionsList.length} <span className="text-xs md:text-sm font-medium text-slate-400">/ {totalSectionsList.length}</span>
-                </div>
-                <div className="text-xs md:text-sm font-medium text-navy-800 truncate">Pending Sections</div>
-                <div className="text-[10px] md:text-xs text-slate-400 font-mono mt-0.5">Without maintenance logs</div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[130px] md:h-[138px]">
-              <div className="h-1 w-full bg-emerald-500" />
-              <div className="px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-xs font-bold text-navy-800 flex justify-between items-center shrink-0">
-                <span>User Submissions</span>
-              </div>
-              <div className="overflow-y-auto flex-grow divide-y divide-slate-100 scrollbar-thin">
-                {userSubmissionsList.map(u => (
-                  <div 
-                    key={u.id}
-                    onClick={() => setFilterUser(u.id === filterUser ? null : u.id)}
-                    className={`px-4 py-2 text-xs flex justify-between items-center cursor-pointer transition-colors hover:bg-slate-50
-                      ${filterUser === u.id ? 'bg-navy-50 font-bold text-navy-800' : 'text-slate-600'}`}
-                  >
-                    <span className="truncate max-w-[130px]">{u.name}</span>
-                    <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{u.count} tests</span>
+          )}
+
+          {isSubAdmin && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <StatCard 
+                value={totalCount} 
+                label="Total Tests" 
+                sub={`Division: ${subAdminDiv}`} 
+                barClass="bg-navy-600" 
+                valueClass="text-navy-700" 
+                isActive={!filterUser}
+                onClick={() => setFilterUser(null)}
+              />
+              <div 
+                onClick={() => {
+                  setPendingSearch('');
+                  setShowPendingModal(true);
+                }}
+                className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden h-[130px] md:h-[138px] cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300 transition-all duration-200"
+              >
+                <div className="h-1 w-full bg-amber-500" />
+                <div className="p-3 md:p-5 flex flex-col justify-center">
+                  <div className="text-2xl md:text-3xl font-semibold text-amber-700 leading-none mb-1.5 md:mb-2">
+                    {pendingSectionsList.length} <span className="text-xs md:text-sm font-medium text-slate-400">/ {totalSectionsList.length}</span>
                   </div>
-                ))}
-                {userSubmissionsList.length === 0 && (
-                  <div className="px-4 py-8 text-center text-slate-400 text-xs">No submissions</div>
-                )}
+                  <div className="text-xs md:text-sm font-medium text-navy-800 truncate">Pending Sections</div>
+                  <div className="text-[10px] md:text-xs text-slate-400 font-mono mt-0.5">Without maintenance logs</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[130px] md:h-[138px]">
+                <div className="h-1 w-full bg-emerald-500" />
+                <div className="px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-xs font-bold text-navy-800 flex justify-between items-center shrink-0">
+                  <span>User Submissions</span>
+                </div>
+                <div className="overflow-y-auto flex-grow divide-y divide-slate-100 scrollbar-thin">
+                  {userSubmissionsList.map(u => (
+                    <div 
+                      key={u.id}
+                      onClick={() => setFilterUser(u.id === filterUser ? null : u.id)}
+                      className={`px-4 py-2 text-xs flex justify-between items-center cursor-pointer transition-colors hover:bg-slate-50
+                        ${filterUser === u.id ? 'bg-navy-50 font-bold text-navy-800' : 'text-slate-600'}`}
+                    >
+                      <span className="truncate max-w-[130px]">{u.name}</span>
+                      <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{u.count} tests</span>
+                    </div>
+                  ))}
+                  {userSubmissionsList.length === 0 && (
+                    <div className="px-4 py-8 text-center text-slate-400 text-xs">No submissions</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Health Summary Cards (only for Sub Admins) */}
-        {!isGlobalAdmin && (
-          <HealthSummaryCards entries={allEntries} />
-        )}
+          {/* Health Summary Cards (only for Sub Admins) */}
+          {!isGlobalAdmin && (
+            <HealthSummaryCards entries={allEntries} />
+          )}
+        </div>
 
-        <div className="space-y-5 items-start">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        {/* Scrollable Records Table Section */}
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+          <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
                 <h2 className="text-[15px] font-semibold text-navy-900">Recent Test Records</h2>
                 {isGlobalAdmin && activeFilter !== 'total' && (
@@ -219,18 +223,18 @@ export default function Dashboard({ setActivePage }) {
             </div>
 
             {recent.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 py-14 text-slate-400 text-sm text-center px-6">
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 py-14 text-slate-400 text-sm text-center px-6 overflow-y-auto">
                 <svg className="w-10 h-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <p>
                   No records found in the database for the active filters.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto scrollbar-thin">
+              <div className="flex-1 overflow-auto scrollbar-thin">
                 <table className="w-full text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-sm">
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Date', 'Division', 'Section', 'Name & Designation', 'Submitted By', 'Action'].map(h => (
+                      {['Testing Date', 'Division', 'Section', 'Name & Designation', 'Lowest Value Summary', 'Action'].map(h => (
                         <th key={h} className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${h === 'Action' ? 'text-right' : 'text-left'}`}>{h}</th>
                       ))}
                     </tr>
@@ -258,8 +262,23 @@ export default function Dashboard({ setActivePage }) {
                               <div className="text-[10px] text-slate-400 font-medium">{e.supervisorName}</div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
-                            {e.userId?.name || e.submittedBy || '—'}
+                          <td className="px-4 py-3 text-xs whitespace-nowrap">
+                            {(() => {
+                              const lowest = getLowestMetric(e);
+                              if (!lowest) return <span className="text-slate-400 font-mono">—</span>;
+                              let badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                              if (lowest.value < 20) {
+                                badgeColor = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
+                              } else if (lowest.value < 100) {
+                                badgeColor = 'bg-amber-50 text-amber-800 border-amber-200 font-semibold';
+                              }
+                              return (
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border ${badgeColor}`}>
+                                  <span className="font-bold">{lowest.metric}: {lowest.rawValue} MΩ</span>
+                                  <span className="opacity-75 text-[10px]">({lowest.quadNo})</span>
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-right" onClick={ev => ev.stopPropagation()}>
                             <button
@@ -358,7 +377,7 @@ export default function Dashboard({ setActivePage }) {
                                         ['Designation', e.supervisorName || '—'],
                                         ['Name', e.userName || e.technicianName],
                                         ['Recorded On', e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
-                                        ['Submitted By User', e.userId && typeof e.userId === 'object' ? `${e.userId.name || '—'} (${e.userId.phoneNumber || '—'})` : '—'],
+                                        ['Lowest Value Summary', formatLowestMetricText(e)],
                                       ].map(([k, v]) => (
                                         <div key={k}>
                                           <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">{k}</p>
@@ -406,7 +425,6 @@ export default function Dashboard({ setActivePage }) {
             )}
           </div>
         </div>
-      </div>
 
       {/* Pending Sections Modal */}
       {showPendingModal && (

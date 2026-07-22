@@ -130,7 +130,7 @@ export default function EntryForm({ setActivePage, showToast }) {
     if (!form.majorSectionId) e.majorSectionId = 'Select major section';
     if (!form.sectionId) e.sectionId = 'Select a section';
     if (!form.userName.trim() && !form.technicianName.trim()) e.userName = 'Name required';
-    if (!form.testDate) e.testDate = 'Date required';
+    if (!form.testDate) e.testDate = 'Testing Date required';
     if (!form.attachment) e.attachment = 'Image/File upload is required';
     return e;
   };
@@ -278,7 +278,7 @@ export default function EntryForm({ setActivePage, showToast }) {
         <div className="p-8 space-y-6 flex-1 max-w-[1500px] mx-auto w-full overflow-y-auto scrollbar-thin">
 
           {/* Section 01 — Location & Header */}
-          <SectionPanel number="01" title="Location & Date Information"
+          <SectionPanel number="01" title="Location & Testing Date Information"
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -307,7 +307,7 @@ export default function EntryForm({ setActivePage, showToast }) {
                 <FieldError message={errors.sectionId} />
               </div>
               <div>
-                <FormLabel required>Test Date</FormLabel>
+                <FormLabel required>Testing Date</FormLabel>
                 <Input type="date" value={form.testDate} onChange={e => set('testDate', e.target.value)} error={errors.testDate} />
                 <FieldError message={errors.testDate} />
               </div>

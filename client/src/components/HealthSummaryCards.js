@@ -51,7 +51,7 @@ const CARDS = [
   {
     key: 'critical',
     label: 'Critical',
-    sub: 'Any value < 20 MΩ',
+    sub: '10 MΩ < value < 20 MΩ',
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
         <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -64,20 +64,39 @@ const CARDS = [
     borderClass: 'border-red-200',
     iconBg: 'bg-red-100 text-red-600',
   },
+  {
+    key: 'extremelyCritical',
+    label: 'Extremely Critical',
+    sub: 'Any value ≤ 10 MΩ',
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    ),
+    barClass: 'bg-rose-950',
+    valueClass: 'text-rose-950 font-extrabold',
+    bgClass: 'bg-rose-950/10',
+    borderClass: 'border-rose-900/40',
+    iconBg: 'bg-rose-950 text-rose-100 shadow-sm',
+  },
 ];
 
 export default function HealthSummaryCards({ entries = [], activeFilter, onCardClick }) {
   const stats = getDashboardStats(entries);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
       {CARDS.map((card) => {
         const value = stats[card.key] ?? 0;
         const display = card.isPercent ? `${value}%` : value;
 
         // Since the health score metric is hidden, all remaining summary cards are entry category filters.
         const isClickable = true;
-        const isActive = isClickable && activeFilter?.toLowerCase() === card.key.toLowerCase();
+        const cardKeyNorm = card.key.toLowerCase().replace(/[\s_]+/g, '');
+        const activeFilterNorm = activeFilter?.toLowerCase().replace(/[\s_]+/g, '');
+        const isActive = isClickable && activeFilterNorm === cardKeyNorm;
 
         const activeStyles = isActive
           ? 'border-navy-500 ring-2 ring-navy-500/15 bg-navy-50/20 shadow-md scale-[1.02]'

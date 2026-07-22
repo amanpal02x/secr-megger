@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getStats, getEntries, getEntry } from '../utils/api';
 import HealthSummaryCards from '../components/HealthSummaryCards';
+import { getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 
 export default function TechnicianDashboard({ setActivePage }) {
   const [recent, setRecent] = useState([]);
@@ -48,34 +49,42 @@ export default function TechnicianDashboard({ setActivePage }) {
   );
 
   return (
-    <div className="flex-1 bg-slate-100 min-h-screen">
-      {}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="flex-1 bg-slate-100 h-full flex flex-col overflow-hidden">
+      {/* Top Welcome Header */}
+      <div className="shrink-0 bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">Technician Workspace</h1>
           <p className="text-xs md:text-sm text-slate-500 mt-1">Record and manage your cable meggering tests</p>
         </div>
         <button
           onClick={() => setActivePage('entry')}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 text-navy-900 font-bold px-6 py-3 rounded-xl shadow-lg shadow-gold-500/20 transition-all active:scale-95"
+          className="bg-navy-900 hover:bg-navy-800 text-gold-400 font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs md:text-sm shrink-0"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span className="sm:inline">New Test Entry</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+          New Entry
         </button>
       </div>
 
-      <div className="p-4 md:p-8 grid grid-cols-12 gap-6 md:gap-8">
-        
-        {}
-        <div className="col-span-12 space-y-8">
-          
-          {}
-          <div className="grid grid-cols-1 max-w-xs gap-3 md:gap-4">
+      <div className="flex-1 p-4 md:p-8 flex flex-col space-y-6 min-h-0 overflow-hidden">
+        {/* KPI Cards & Stat Header Section (Fixed) */}
+        <div className="shrink-0 space-y-6">
+          <div className="bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-700 font-bold text-lg">
+                {allEntries[0]?.technicianName ? allEntries[0].technicianName.charAt(0).toUpperCase() : 'T'}
+              </div>
+              <div>
+                <h2 className="font-bold text-navy-900 text-base md:text-lg">
+                  {allEntries[0]?.technicianName || 'Technician Workspace'}
+                </h2>
+                <p className="text-xs text-slate-400 font-medium">Logged in Technician</p>
+              </div>
+            </div>
+            
             <div 
               onClick={() => setActiveFilter(activeFilter === 'Total' ? null : 'Total')}
               className={`relative overflow-hidden bg-white p-4 md:p-5 rounded-2xl border ${activeFilter === 'Total' ? 'border-navy-400 ring-2 ring-navy-400/20 shadow-md bg-navy-50/10' : 'border-slate-200'} shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95`}
             >
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-navy-500" />
               <div className="pl-1">
                 <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Total Tests</p>
                 <p className="text-2xl md:text-3xl font-black text-navy-600">{allEntries.length}</p>
@@ -85,22 +94,23 @@ export default function TechnicianDashboard({ setActivePage }) {
 
           {/* Health Summary Cards */}
           <HealthSummaryCards entries={allEntries} />
+        </div>
 
-          {/* Recent Submissions Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-navy-900">
-                {activeFilter === 'Total' ? 'All Submissions' : 'Your Recent Submissions'}
-              </h3>
-              <button onClick={() => setActivePage('log')} className="text-xs font-bold text-navy-600 hover:underline">View Full Log</button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50/50 text-[10px] uppercase text-slate-400 font-bold">
+        {/* Recent Submissions Table (Scrollable) */}
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-bold text-navy-900">
+              {activeFilter === 'Total' ? 'All Submissions' : 'Your Recent Submissions'}
+            </h3>
+            <button onClick={() => setActivePage('log')} className="text-xs font-bold text-navy-600 hover:underline">View Full Log</button>
+          </div>
+          <div className="flex-1 overflow-auto scrollbar-thin">
+            <table className="w-full text-sm text-left">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-[10px] uppercase text-slate-400 font-bold shadow-sm">
                   <tr>
-                    <th className="px-6 py-3">Date</th>
+                    <th className="px-6 py-3">Testing Date</th>
                     <th className="px-6 py-3">Section</th>
-                    <th className="px-6 py-3">Submitted By</th>
+                    <th className="px-6 py-3">Lowest Value Summary</th>
                     <th className="px-6 py-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -115,9 +125,24 @@ export default function TechnicianDashboard({ setActivePage }) {
                           {new Date(r.testDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </td>
                         <td className="px-6 py-4 font-bold text-navy-800">{r.sectionName}</td>
-                        <td className="px-6 py-4 text-xs font-medium text-slate-600">
-                          {r.userId?.name || r.submittedBy || '—'}
-                        </td>
+                        <td className="px-6 py-4 text-xs whitespace-nowrap">
+                            {(() => {
+                              const lowest = getLowestMetric(r);
+                              if (!lowest) return <span className="text-slate-400 font-mono">—</span>;
+                              let badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                              if (lowest.value < 20) {
+                                badgeColor = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
+                              } else if (lowest.value < 100) {
+                                badgeColor = 'bg-amber-50 text-amber-800 border-amber-200 font-semibold';
+                              }
+                              return (
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border ${badgeColor}`}>
+                                  <span className="font-bold">{lowest.metric}: {lowest.rawValue} MΩ</span>
+                                  <span className="opacity-75 text-[10px]">({lowest.quadNo})</span>
+                                </span>
+                              );
+                            })()}
+                          </td>
                         <td className="px-6 py-4 text-right" onClick={ev => ev.stopPropagation()}>
                           <button
                             onClick={() => toggle(r.id)}
@@ -214,7 +239,7 @@ export default function TechnicianDashboard({ setActivePage }) {
                                       ['Designation', r.supervisorName || '—'],
                                       ['Name', r.technicianName],
                                       ['Recorded On', r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '—'],
-                                      ['Submitted By User', r.userId && typeof r.userId === 'object' ? `${r.userId.name || '—'} (${r.userId.phoneNumber || '—'})` : '—'],
+                                      ['Lowest Value Summary', formatLowestMetricText(r)],
                                     ].map(([k, v]) => (
                                       <div key={k}>
                                         <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">{k}</p>
@@ -265,10 +290,6 @@ export default function TechnicianDashboard({ setActivePage }) {
             </div>
           </div>
         </div>
-
-
-
       </div>
-    </div>
   );
 }
