@@ -23,12 +23,20 @@ const customCookieStorage = {
   setItem(key, value) {
     const encoded = encodeURIComponent(value);
     const maxAge = 365 * 24 * 60 * 60; // 1 year persistence
-    document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
-    document.cookie = `${key}=${encoded};path=/;domain=secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      document.cookie = `${key}=${encoded};path=/;max-age=${maxAge};SameSite=Lax`;
+    } else {
+      document.cookie = `${key}=${encoded};path=/;domain=.secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
+      document.cookie = `${key}=${encoded};path=/;domain=secrtelecom.com;max-age=${maxAge};SameSite=Lax;Secure`;
+    }
   },
   removeItem(key) {
-    document.cookie = `${key}=;path=/;domain=.secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
-    document.cookie = `${key}=;path=/;domain=secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocal) {
+      document.cookie = `${key}=;path=/;domain=.secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
+      document.cookie = `${key}=;path=/;domain=secrtelecom.com;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
+    }
     document.cookie = `${key}=;path=/;expires=Thu, 01 Jan 1970 00:00:00 UTC;SameSite=Lax;Secure`;
   }
 };

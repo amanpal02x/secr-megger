@@ -71,6 +71,7 @@ function MainApp() {
   }
 
   if (isForbidden) {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center',
@@ -81,7 +82,7 @@ function MainApp() {
           Access denied for Meggering. Please contact your administrator to gain access.
         </p>
         <button 
-          onClick={() => window.location.href = "https://secrtelecom.com"}
+          onClick={() => window.location.href = isLocal ? '/' : "https://secrtelecom.com"}
           style={{
             background: '#0076c0', color: '#fff', border: 'none', padding: '10px 22px', 
             borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '14px'
@@ -94,6 +95,11 @@ function MainApp() {
   }
 
   if (!dbUser) {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      return <Login showToast={showToast} />;
+    }
+
     const appName = "Megger";
     const subdomain = "megger";
     const origin = window.location.origin;

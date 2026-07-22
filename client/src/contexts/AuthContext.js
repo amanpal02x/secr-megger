@@ -117,6 +117,8 @@ export function AuthProvider({ children }) {
           sessionStorage.removeItem('_megger_redirect_ts');
           sessionStorage.removeItem('_megger_redirect_count');
           // Show error UI instead of looping
+          const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const loginUrl = isLocalEnv ? '/' : `https://secrtelecom.com/login?app=Megger&subdomain=megger&redirect_to=${window.location.origin}`;
           const root = document.getElementById('root');
           if (root) {
             root.innerHTML = `
@@ -128,7 +130,7 @@ export function AuthProvider({ children }) {
                 <p style="color:#64748b;margin:0;max-width:400px;line-height:1.6;">
                   Unable to establish your session automatically. This may be due to an expired or invalid session.
                 </p>
-                <a href="https://secrtelecom.com/login?app=Megger&subdomain=megger&redirect_to=${window.location.origin}"
+                <a href="${loginUrl}"
                    style="background:#0076c0;color:#fff;padding:12px 28px;border-radius:8px;
                           text-decoration:none;font-weight:600;font-size:15px;margin-top:8px;">
                   Login Again
@@ -282,6 +284,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     setToken(null);
     setDbUser(null);
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      window.location.href = '/';
+      return;
+    }
     window.location.href = `https://secrtelecom.com/login?app=Megger&subdomain=megger&redirect_to=${encodeURIComponent(window.location.origin)}`;
   };
 
