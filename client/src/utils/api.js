@@ -40,4 +40,17 @@ export const createLocation = (data) => API.post('/locations', data).then(r => r
 export const updateLocation = (id, data) => API.put(`/locations/${id}`, data).then(r => r.data);
 export const deleteLocation = (id) => API.delete(`/locations/${id}`).then(r => r.data);
 
+export const getStations = () => API.get('/stations').then(r => r.data);
+export const getOtdrReports = () => API.get('/otdr-reports').then(r => r.data);
+export const getMyOtdrReports = () => API.get('/otdr-reports/my').then(r => r.data).catch(err => {
+  if (err.response?.status === 404) {
+    return API.get('/otdr-reports', { params: { my: 'true' } }).then(r => r.data);
+  }
+  throw err;
+});
+export const getOtdrReportById = (id) => API.get(`/otdr-reports/${id}`).then(r => r.data);
+export const createOtdrReport = (data) => API.post('/otdr-reports', data).then(r => r.data);
+export const deleteOtdrReport = (id) => API.delete(`/otdr-reports/${id}`).then(r => r.data);
+
+
 

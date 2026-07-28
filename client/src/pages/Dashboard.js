@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getEntries, getLocations, getEntry } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import HealthSummaryCards from '../components/HealthSummaryCards';
+import LoadingScreen from '../components/LoadingScreen';
 import { getEntryCondition, getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 
 function StatCard({ value, label, sub, barClass, valueClass, isActive, onClick }) {
@@ -63,12 +64,7 @@ export default function Dashboard({ setActivePage }) {
     setExpandedId(id);
   };
 
-  if (loading) return (
-    <div className="flex-1 flex items-center justify-center flex-col gap-3 text-slate-400 text-sm">
-      <div className="w-8 h-8 border-2 border-slate-200 border-t-navy-600 rounded-full animate-spin" />
-      Loading dashboard…
-    </div>
-  );
+  if (loading) return <LoadingScreen message="Loading Dashboard..." />;
 
   const role = dbUser?.role || 'user';
   const isGlobalAdmin = ['admin', 'global_admin'].includes(role);

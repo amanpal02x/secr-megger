@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getStats, getEntries, getEntry } from '../utils/api';
 import HealthSummaryCards from '../components/HealthSummaryCards';
+import LoadingScreen from '../components/LoadingScreen';
 import { getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 
 export default function UserDashboard({ setActivePage }) {
@@ -41,12 +42,7 @@ export default function UserDashboard({ setActivePage }) {
     setExpandedId(id);
   };
 
-  if (loading) return (
-    <div className="flex-1 flex items-center justify-center flex-col gap-3 text-slate-400 text-sm">
-      <div className="w-8 h-8 border-2 border-slate-200 border-t-gold-500 rounded-full animate-spin" />
-      Loading user workspace…
-    </div>
-  );
+  if (loading) return <LoadingScreen message="Loading User Workspace..." />;
 
   return (
     <div className="flex-1 bg-slate-100 h-full flex flex-col overflow-hidden">

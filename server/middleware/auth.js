@@ -147,4 +147,13 @@ const authorize = async (req, res, next) => {
   return protect(req, res, next);
 };
 
-module.exports = { protect, adminOnly, apiKeyAuth, authorize };
+const fieldEngineerOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'user') {
+    return next();
+  }
+  return res.status(403).json({
+    message: 'Access Denied: Administrative roles (Global Admin / Sub Admin) cannot create or modify measurement entries. Access is restricted to Field Engineers.',
+  });
+};
+
+module.exports = { protect, adminOnly, apiKeyAuth, authorize, fieldEngineerOnly };

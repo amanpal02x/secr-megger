@@ -16,7 +16,9 @@ const connectDB = require('./config/db');
 const Entry = require('./models/Entry');
 const User = require('./models/User');
 const Location = require('./models/Location');
-const { protect, adminOnly, authorize } = require('./middleware/auth');
+const Station = require('./models/Station');
+const OtdrReport = require('./models/OtdrReport');
+const { protect, adminOnly, authorize, fieldEngineerOnly } = require('./middleware/auth');
 const { ensureDbConnected } = require('./middleware/dbCheck');
 const setupMCP = require('./mcp');
 const { standardizeMajorSection, standardizeString } = require('./utils/standardize');
@@ -280,6 +282,203 @@ app.get('/api/sections', async (req, res) => {
   }
 });
 
+// Stations Master API
+const DEFAULT_STATIONS = [
+  { code: 'BSP', name: 'Bilaspur (BSP)' },
+  { code: 'R', name: 'Raipur (R)' },
+  { code: 'NGP', name: 'Nagpur (NGP)' },
+  { code: 'DURG', name: 'Durg (DURG)' },
+  { code: 'RIG', name: 'Raigarh (RIG)' },
+  { code: 'CPH', name: 'Champa (CPH)' },
+  { code: 'G', name: 'Gondia (G)' },
+  { code: 'PND', name: 'Pendra Road (PND)' },
+  { code: 'SDL', name: 'Shahdol (SDL)' },
+  { code: 'APR', name: 'Anuppur (APR)' },
+  { code: 'KRBA', name: 'Korba (KRBA)' },
+  { code: 'USL', name: 'Usalapur (USL)' },
+  { code: 'BIA', name: 'Bhilai (BIA)' },
+  { code: 'ROU', name: 'Rourkela (ROU)' },
+  { code: 'JSG', name: 'Jharsuguda (JSG)' },
+];
+
+app.get('/api/stations', async (req, res) => {
+  try {
+    let dbStations = await Station.find({}).sort({ code: 1 });
+    if (!dbStations || dbStations.length === 0) {
+      // Return default station master list
+      return res.json(DEFAULT_STATIONS);
+    }
+    res.json(dbStations.map(s => ({ code: s.code, name: s.name || s.code, division: s.division })));
+  } catch (err) {
+    res.json(DEFAULT_STATIONS);
+  }
+});
+
+app.post('/api/stations', protect, adminOnly, async (req, res) => {
+  try {
+    const { code, name, division } = req.body;
+    if (!code) return res.status(400).json({ message: 'Station code is required' });
+    const station = new Station({ code: code.toUpperCase().trim(), name: name || code, division });
+    await station.save();
+    res.status(201).json(station);
+  } catch (err) {
+    res.status(500).json({ message: 'Error adding station' });
+  }
+});
+
+// OTDR Reports API
+app.get('/api/otdr-reports', protect, async (req, res) => {
+  try {
+    const { userOnly, my } = req.query;
+    if ((userOnly === 'true' || my === 'true') && req.user) {
+      const userConditions = [{ userId: req.user._id }];
+      if (req.user.name) {
+        userConditions.push({ userName: req.user.name });
+        userConditions.push({ technicianName: req.user.name });
+      }
+      if (req.user.email) {
+        userConditions.push({ userName: req.user.email });
+      }
+      if (req.user.username) {
+        userConditions.push({ userName: req.user.username });
+      }
+      const reports = await OtdrReport.find({ $or: userConditions }).sort({ createdAt: -1 });
+      return res.json(reports);
+    }
+
+    const reports = await OtdrReport.find({}).sort({ createdAt: -1 });
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching OTDR reports' });
+  }
+});
+
+// GET user-specific OTDR reports (only reports created by logged-in user)
+app.get('/api/otdr-reports/my', protect, async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
+    const userConditions = [{ userId: req.user._id }];
+    if (req.user.name) {
+      userConditions.push({ userName: req.user.name });
+      userConditions.push({ technicianName: req.user.name });
+    }
+    if (req.user.email) {
+      userConditions.push({ userName: req.user.email });
+    }
+    if (req.user.username) {
+      userConditions.push({ userName: req.user.username });
+    }
+
+    const reports = await OtdrReport.find({ $or: userConditions }).sort({ createdAt: -1 });
+    res.json(reports);
+  } catch (err) {
+    console.error('Error fetching user OTDR reports:', err);
+    res.status(500).json({ message: 'Error fetching your OTDR reports' });
+  }
+});
+
+// GET single OTDR report by ID with ownership verification
+app.get('/api/otdr-reports/:id', protect, async (req, res) => {
+  try {
+    const report = await OtdrReport.findOne({ id: req.params.id });
+    if (!report) {
+      return res.status(404).json({ message: 'OTDR Report not found' });
+    }
+
+    const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(req.user?.role);
+    const isOwner = req.user && (
+      (report.userId && report.userId.toString() === req.user._id.toString()) ||
+      (req.user.name && (report.userName === req.user.name || report.technicianName === req.user.name)) ||
+      (req.user.email && report.userName === req.user.email) ||
+      (req.user.username && report.userName === req.user.username)
+    );
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ message: 'Access denied: You can only view your own OTDR reports' });
+    }
+
+    res.json(report);
+  } catch (err) {
+    console.error('Error fetching single OTDR report:', err);
+    res.status(500).json({ message: 'Error fetching OTDR report details' });
+  }
+});
+
+app.post('/api/otdr-reports', protect, async (req, res) => {
+  try {
+    // Role check: Only standard users can submit OTDR reports
+    if (['admin', 'global_admin', 'sub_admin'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Administrative roles cannot submit OTDR reports. Access is read-only.' });
+    }
+
+    const { testDate, division, agencyName, fromStation, toStation, fibreLength, wavelength, eventHeaders, fibreReadings } = req.body;
+    
+    // Server-side Validations
+    if (!testDate) return res.status(400).json({ message: 'Date of Testing is required' });
+    if (!fromStation) return res.status(400).json({ message: 'From Station is required' });
+    if (!toStation) return res.status(400).json({ message: 'To Station is required' });
+    if (fromStation.toUpperCase() === toStation.toUpperCase()) {
+      return res.status(400).json({ message: 'From Station and To Station cannot be the same' });
+    }
+    if (!fibreLength || isNaN(Number(fibreLength))) {
+      return res.status(400).json({ message: 'Fibre Length must be a numeric value' });
+    }
+    if (!wavelength || !['1310 nm', '1550 nm'].includes(wavelength)) {
+      return res.status(400).json({ message: 'Wavelength must be either 1310 nm or 1550 nm' });
+    }
+    
+    // Check circuit pool limits
+    if (Array.isArray(fibreReadings)) {
+      const counts = {};
+      const limits = { 'RLY S/H': 2, 'RLY L/H': 2, 'WIFI': 1, 'Spare': 1 };
+      for (const r of fibreReadings) {
+        if (r.circuit) {
+          counts[r.circuit] = (counts[r.circuit] || 0) + 1;
+          const maxAllowed = limits[r.circuit] || 1;
+          if (counts[r.circuit] > maxAllowed) {
+            return res.status(400).json({ message: `Circuit ${r.circuit} exceeds maximum allowed selection count (${maxAllowed})` });
+          }
+        }
+      }
+    }
+
+    const reportId = uuidv4();
+    const report = new OtdrReport({
+      id: reportId,
+      testDate,
+      division: division || (req.user ? req.user.division : ''),
+      agencyName: agencyName ? agencyName.trim() : '',
+      fromStation,
+      toStation,
+      fibreLength: String(fibreLength),
+      wavelength,
+      eventHeaders: eventHeaders || ['Event 1', 'Event 2', 'Event 3', 'Event 4'],
+      fibreReadings: fibreReadings || [],
+      userName: req.user ? req.user.name : undefined,
+      technicianName: req.user ? req.user.name : undefined,
+      userId: req.user ? req.user._id : undefined,
+    });
+
+    await report.save();
+    res.status(201).json(report);
+  } catch (err) {
+    console.error('Error creating OTDR report:', err);
+    res.status(500).json({ message: 'Error saving OTDR report' });
+  }
+});
+
+app.delete('/api/otdr-reports/:id', protect, async (req, res) => {
+  try {
+    const report = await OtdrReport.findOneAndDelete({ id: req.params.id });
+    if (!report) return res.status(404).json({ message: 'OTDR Report not found' });
+    res.json({ message: 'OTDR Report deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting OTDR report' });
+  }
+});
+
 // POST bulk locations
 app.post('/api/locations/bulk', protect, adminOnly, async (req, res) => {
   try {
@@ -495,8 +694,8 @@ app.get('/api/entries/:id/attachment', async (req, res) => {
   }
 });
 
-// POST new entry
-app.post('/api/entries', protect, async (req, res) => {
+// POST new entry (Field Engineer / User only)
+app.post('/api/entries', protect, fieldEngineerOnly, async (req, res) => {
   try {
     const {
       divisionId,
@@ -571,16 +770,13 @@ app.post('/api/entries', protect, async (req, res) => {
   }
 });
 
-app.put('/api/entries/:id', protect, async (req, res) => {
+app.put('/api/entries/:id', protect, fieldEngineerOnly, async (req, res) => {
   try {
     const entry = await Entry.findOne({ id: req.params.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     
-    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
-      return res.status(403).json({ error: 'Unauthorized for this division' });
+    if (entry.userId && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized: Field engineers can only modify their own entries' });
     }
 
     const updateData = { ...req.body };
@@ -598,17 +794,14 @@ app.put('/api/entries/:id', protect, async (req, res) => {
   }
 });
 
-// DELETE entry
-app.delete('/api/entries/:id', protect, async (req, res) => {
+// DELETE entry (Field Engineer / User only - own entries)
+app.delete('/api/entries/:id', protect, fieldEngineerOnly, async (req, res) => {
   try {
     const entry = await Entry.findOne({ id: req.params.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
-    if (req.user.role === 'user' && entry.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-    if (req.user.role === 'sub_admin' && entry.divisionName !== req.user.division) {
-      return res.status(403).json({ error: 'Unauthorized for this division' });
+    if (entry.userId && entry.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized: Field engineers can only delete their own entries' });
     }
 
     await Entry.findOneAndDelete({ id: req.params.id });
@@ -628,8 +821,8 @@ app.delete('/api/entries', protect, adminOnly, async (req, res) => {
   }
 });
 
-// POST bulk entries
-app.post('/api/entries/bulk', protect, async (req, res) => {
+// POST bulk entries (Field Engineer / User only)
+app.post('/api/entries/bulk', protect, fieldEngineerOnly, async (req, res) => {
   try {
     const entries = req.body;
     if (!Array.isArray(entries)) {

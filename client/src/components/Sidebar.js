@@ -73,6 +73,18 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
               }
             />
             <NavItem
+              active={activePage === 'otdr'}
+              onClick={() => setActivePage('otdr')}
+              label="OFC OTDR Report"
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" />
+                  <polyline points="13 2 13 9 20 9" />
+                  <path d="M9 15h6" />
+                </svg>
+              }
+            />
+            <NavItem
               active={activePage === 'log'}
               onClick={() => setActivePage('log')}
               label="Master Data Log"
@@ -123,10 +135,35 @@ export default function Sidebar({ activePage, setActivePage, onClose }) {
             <NavItem
               active={activePage === 'entry'}
               onClick={() => setActivePage('entry')}
-              label="New Test Entry"
+              label="6 Quad Meggering"
               icon={
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+              }
+            />
+            <NavItem
+              active={activePage === 'otdr'}
+              onClick={() => setActivePage('otdr')}
+              label="OFC OTDR Report"
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" />
+                  <polyline points="13 2 13 9 20 9" />
+                  <path d="M9 15h6" />
+                </svg>
+              }
+            />
+            <NavItem
+              active={activePage === 'my-otdr'}
+              onClick={() => setActivePage('my-otdr')}
+              label="My OTDR Reports"
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
                 </svg>
               }
             />

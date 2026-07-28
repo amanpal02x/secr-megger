@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import Toast from './components/Toast';
+import LoadingScreen from './components/LoadingScreen';
 import EntryForm from './pages/EntryForm';
 import DataLog from './pages/DataLog';
 import Login from './pages/Login';
@@ -10,7 +11,9 @@ import UserDashboard from './pages/UserDashboard';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Locations from './pages/Locations';
-
+import OtdrReportForm from './pages/OtdrReportForm';
+import MyOtdrReports from './pages/MyOtdrReports';
+import ForbiddenAccess from './components/ForbiddenAccess';
 
 function MainApp() {
   const { dbUser, loading, isForbidden } = useAuth();
@@ -67,7 +70,7 @@ function MainApp() {
   }, [page]);
 
   if (loading) {
-    return <div className="h-screen flex items-center justify-center bg-slate-100 font-bold text-navy-500 text-center p-4">Loading App...</div>;
+    return <LoadingScreen message="Loading Application..." fullScreen={true} />;
   }
 
   if (isForbidden) {
@@ -130,13 +133,16 @@ function MainApp() {
   }
 
   const renderPage = () => {
-    const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser.role);
+    const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser?.role);
     switch (page) {
       case 'dashboard': return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <UserDashboard setActivePage={handleSetPage} />;
-      case 'entry':     return <EntryForm setActivePage={handleSetPage} showToast={showToast} />;
+      case 'entry':     return isAdmin ? <ForbiddenAccess setActivePage={handleSetPage} /> : <EntryForm setActivePage={handleSetPage} showToast={showToast} />;
+      case 'otdr':      return <OtdrReportForm setActivePage={handleSetPage} showToast={showToast} />;
+      case 'my-otdr':
+      case 'my-otdr-reports': return <MyOtdrReports setActivePage={handleSetPage} showToast={showToast} />;
       case 'log':       return <DataLog showToast={showToast} />;
-      case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <UserDashboard setActivePage={handleSetPage} />;
-      case 'locations': return ['admin', 'global_admin'].includes(dbUser.role) ? <Locations showToast={showToast} /> : <UserDashboard setActivePage={handleSetPage} />;
+      case 'users':     return isAdmin ? <AdminDashboard setActivePage={handleSetPage} showToast={showToast} /> : <ForbiddenAccess setActivePage={handleSetPage} />;
+      case 'locations': return ['admin', 'global_admin'].includes(dbUser?.role) ? <Locations showToast={showToast} /> : <ForbiddenAccess setActivePage={handleSetPage} />;
       case 'profile':   return <Profile />;
       default:          return isAdmin ? <Dashboard setActivePage={handleSetPage} /> : <UserDashboard setActivePage={handleSetPage} />;
     }
@@ -176,7 +182,7 @@ function MainApp() {
           <div className="w-8"></div> {}
         </header>
 
-        <main className="flex-1 overflow-y-auto focus:outline-none bg-slate-100">
+        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto focus:outline-none bg-slate-100">
           {renderPage()}
         </main>
       </div>

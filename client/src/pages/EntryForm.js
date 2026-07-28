@@ -3,6 +3,7 @@ import { getDivisions, getMajorSections, getSections, createEntry, createEntries
 import { FormLabel, Input, Select, Textarea, FieldError } from '../components/FormField';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../contexts/AuthContext';
+import ForbiddenAccess from '../components/ForbiddenAccess';
 
 const QUAD_NAMES = [
   'Q-1/1', 'Q-1/2', 'Q-2/1', 'Q-2/2', 'Q-3/1', 'Q-3/2',
@@ -47,6 +48,11 @@ function SectionPanel({ number, title, icon, children }) {
 
 export default function EntryForm({ setActivePage, showToast }) {
   const { dbUser } = useAuth();
+  const isAdmin = ['admin', 'global_admin', 'sub_admin'].includes(dbUser?.role);
+
+  if (isAdmin) {
+    return <ForbiddenAccess setActivePage={setActivePage} />;
+  }
   const [form, setForm] = useState({ ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' });
   const [divisions, setDivisions] = useState([]);
   const [majorSections, setMajorSections] = useState([]);
