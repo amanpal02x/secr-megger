@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getStations, createOtdrReport, getOtdrReports } from '../utils/api';
 import { FormLabel, Input, Select, FieldError } from '../components/FormField';
 import { useAuth } from '../contexts/AuthContext';
+import OtdrAnalyticsCards from '../components/OtdrAnalyticsCards';
 
 const FIBRES = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6'];
 
@@ -86,6 +87,9 @@ function OtdrLogView({ setActivePage, showToast }) {
       </div>
 
       <div className="p-4 md:p-8 flex-1 max-w-[1500px] mx-auto w-full space-y-4">
+        {/* Analytics Cards */}
+        <OtdrAnalyticsCards reports={reports} />
+
         {/* Search Bar */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="relative w-full sm:w-80">
@@ -186,7 +190,7 @@ function OtdrLogView({ setActivePage, showToast }) {
                                       <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
                                         <th className="px-3 py-2">Fibre No.</th>
                                         <th className="px-3 py-2">Circuit</th>
-                                        <th className="px-3 py-2 text-center">Loss (dB)</th>
+                                        <th className="px-3 py-2 text-center">Total Loss (dB)</th>
                                         <th className="px-3 py-2 text-center">Loss (dB/km)</th>
                                         {eventHeadersList.map(h => (
                                           <th key={h} className="px-3 py-2 text-center bg-amber-50/80 text-amber-900 font-mono">{h}</th>
@@ -611,7 +615,7 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
                       Circuit
                     </th>
                     <th className="px-3 py-3 text-center font-bold text-slate-700 uppercase text-xs w-28 border-r border-slate-200 bg-navy-50/50">
-                      Loss (dB)
+                      Total Loss (dB)
                     </th>
                     <th className="px-3 py-3 text-center font-bold text-slate-700 uppercase text-xs w-28 border-r border-slate-200 bg-navy-50/50">
                       Loss (dB/km)
@@ -627,12 +631,13 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
                       </div>
                       <div className="flex divide-x divide-amber-200 border-t border-amber-200/80 pt-1">
                         {eventHeaders.map((header, colIdx) => (
-                          <div key={colIdx} className="flex-1 px-1 py-0.5 flex items-center justify-center gap-1 font-mono text-[11px] font-semibold text-amber-900 group min-w-[90px]">
+                          <div key={colIdx} className="flex-1 px-1 py-0.5 flex items-center justify-center gap-1 font-mono text-[11px] font-semibold text-amber-900 group min-w-[110px]">
                             <input
                               type="text"
                               value={header}
+                              placeholder="Enter KM Number"
                               onChange={e => handleUpdateEventHeader(colIdx, e.target.value)}
-                              className="w-full bg-white border border-amber-300 focus:border-amber-500 rounded text-center text-xs font-mono font-semibold text-amber-950 px-1 py-0.5 outline-none transition-all shadow-sm"
+                              className="w-full bg-white border border-amber-300 focus:border-amber-500 rounded text-center text-xs font-mono font-semibold text-amber-950 px-1.5 py-0.5 outline-none transition-all shadow-sm placeholder:text-amber-700/50 placeholder:font-sans placeholder:font-normal placeholder:text-[10px]"
                             />
                             <button
                               type="button"
@@ -693,7 +698,7 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
                           </select>
                         </td>
 
-                        {/* Loss (dB) */}
+                        {/* Total Loss (dB) */}
                         <td className="px-2 py-2 border-r border-slate-200 bg-navy-50/20">
                           <input
                             type="number"
@@ -721,7 +726,7 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
                         {eventHeaders.map((header, colIdx) => {
                           const eventKey = header.trim() || `event_${colIdx}`;
                           return (
-                            <td key={colIdx} className="px-1.5 py-2 border-r border-amber-200/50 bg-amber-50/20 min-w-[90px]">
+                            <td key={colIdx} className="px-1.5 py-2 border-r border-amber-200/50 bg-amber-50/20 min-w-[110px]">
                               <input
                                 type="number"
                                 step="any"

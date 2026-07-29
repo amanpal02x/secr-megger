@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getMyOtdrReports, getOtdrReports } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import OtdrAnalyticsCards from '../components/OtdrAnalyticsCards';
 
 export default function MyOtdrReports({ setActivePage, showToast }) {
   const { dbUser } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Search, Filter & Sort States
   const [search, setSearch] = useState('');
   const [wavelengthFilter, setWavelengthFilter] = useState('ALL');
@@ -84,18 +85,6 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
       });
   }, [reports, search, wavelengthFilter, sortBy]);
 
-  // Derived Stats
-  const stats = useMemo(() => {
-    const total = reports.length;
-    const stationsSet = new Set();
-    reports.forEach(r => {
-      if (r.fromStation) stationsSet.add(r.fromStation);
-      if (r.toStation) stationsSet.add(r.toStation);
-    });
-    const latestDate = reports.length > 0 ? reports[0].testDate : '—';
-    return { total, stationsCount: stationsSet.size, latestDate };
-  }, [reports]);
-
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
       {/* Page Header */}
@@ -126,45 +115,8 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
 
       <div className="p-4 md:p-8 flex-1 max-w-[1500px] mx-auto w-full space-y-6">
         
-        {/* KPI Cards Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 rounded-lg bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Submitted Reports</p>
-              <p className="text-2xl font-black text-navy-900">{stats.total}</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Stations Covered</p>
-              <p className="text-2xl font-black text-navy-900">{stats.stationsCount}</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Latest Test Date</p>
-              <p className="text-base font-bold text-navy-900 font-mono">{stats.latestDate}</p>
-            </div>
-          </div>
-        </div>
+        {/* KPI & Analytics Cards Bar */}
+        <OtdrAnalyticsCards reports={reports} />
 
         {/* Search, Filter & Sort Controls Bar */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
@@ -447,7 +399,7 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                       <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
                         <th className="px-3.5 py-2.5">Fibre No.</th>
                         <th className="px-3.5 py-2.5">Circuit</th>
-                        <th className="px-3.5 py-2.5 text-center">Loss (dB)</th>
+                        <th className="px-3.5 py-2.5 text-center">Total Loss (dB)</th>
                         <th className="px-3.5 py-2.5 text-center">Loss (dB/km)</th>
                         {(selectedReport.eventHeaders && selectedReport.eventHeaders.length > 0
                           ? selectedReport.eventHeaders

@@ -51,6 +51,7 @@ export const getMyOtdrReports = () => API.get('/otdr-reports/my').then(r => r.da
 export const getOtdrReportById = (id) => API.get(`/otdr-reports/${id}`).then(r => r.data);
 export const createOtdrReport = (data) => API.post('/otdr-reports', data).then(r => r.data);
 export const deleteOtdrReport = (id) => API.delete(`/otdr-reports/${id}`).then(r => r.data);
+export const getOtdrReportStats = () => API.get('/otdr-reports/stats').then(r => r.data);
 
 
 

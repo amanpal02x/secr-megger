@@ -18,6 +18,7 @@ const User = require('./models/User');
 const Location = require('./models/Location');
 const Station = require('./models/Station');
 const OtdrReport = require('./models/OtdrReport');
+const { getOtdrDashboardStats } = require('./services/otdrAnalyticsService');
 const { protect, adminOnly, authorize, fieldEngineerOnly } = require('./middleware/auth');
 const { ensureDbConnected } = require('./middleware/dbCheck');
 const setupMCP = require('./mcp');
@@ -323,6 +324,20 @@ app.post('/api/stations', protect, adminOnly, async (req, res) => {
     res.status(201).json(station);
   } catch (err) {
     res.status(500).json({ message: 'Error adding station' });
+  }
+});
+
+// GET OTDR reports statistics with RBAC and MongoDB Aggregations
+app.get('/api/otdr-reports/stats', protect, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    const stats = await getOtdrDashboardStats(req.user);
+    res.json(stats);
+  } catch (err) {
+    console.error('Error calculating OTDR stats:', err);
+    res.status(500).json({ message: 'Error fetching OTDR dashboard statistics' });
   }
 });
 
