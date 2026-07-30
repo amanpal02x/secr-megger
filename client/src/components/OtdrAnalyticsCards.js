@@ -1,7 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { getOtdrReportStats } from '../utils/api';
+import { getOtdrReportCondition } from '../utils/conditionUtils';
 
 export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'total', onCardClick = null }) {
   const loading = reports === null;
+  const [totalSections, setTotalSections] = useState(10);
+
+  useEffect(() => {
+    getOtdrReportStats()
+      .then(res => {
+        if (res && res.sectionsCovered && typeof res.sectionsCovered.total === 'number') {
+          setTotalSections(res.sectionsCovered.total);
+        }
+      })
+      .catch(err => console.error("Error fetching total sections:", err));
+  }, []);
 
   const stats = useMemo(() => {
     const reportsList = Array.isArray(reports) ? reports : [];
@@ -35,15 +48,11 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
       if (key) {
         uniqueRoutes.add(key);
       }
-      (r.fibreReadings || []).forEach(fr => {
-        const val = parseFloat(fr.dbKm);
-        if (!isNaN(val)) {
-          if (val < 0.40) excellent++;
-          else if (val <= 0.80) good++;
-          else if (val <= 1.00) critical++;
-          else superCritical++;
-        }
-      });
+      const cond = getOtdrReportCondition(r);
+      if (cond === 'excellent') excellent++;
+      else if (cond === 'good') good++;
+      else if (cond === 'critical') critical++;
+      else if (cond === 'superCritical') superCritical++;
     });
 
     return {
@@ -51,7 +60,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
       totalTestRecords: reportsList.length,
       sectionsCovered: {
         covered: uniqueRoutes.size,
-        total: Math.max(uniqueRoutes.size, 10)
+        total: Math.max(uniqueRoutes.size, totalSections)
       }
     };
   }, [reports]);
@@ -90,7 +99,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         </div>
       </div>
 
-      {/* Card 3: Excellent Fibres */}
+      {/* Card 3: Excellent Sections */}
       <div 
         onClick={() => onCardClick && onCardClick('excellent')}
         className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none bg-gradient-to-b ${
@@ -100,7 +109,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Excellent Fibres</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Excellent</span>
         </div>
         <div className="mt-3">
           <div className="flex items-baseline justify-between">
@@ -112,7 +121,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         </div>
       </div>
 
-      {/* Card 4: Good Fibres */}
+      {/* Card 4: Good Sections */}
       <div 
         onClick={() => onCardClick && onCardClick('good')}
         className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none bg-gradient-to-b ${
@@ -122,7 +131,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800">Good Fibres</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800">Good</span>
         </div>
         <div className="mt-3">
           <div className="flex items-baseline justify-between">
@@ -134,7 +143,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         </div>
       </div>
 
-      {/* Card 5: Critical Fibres */}
+      {/* Card 5: Critical Sections */}
       <div 
         onClick={() => onCardClick && onCardClick('critical')}
         className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none bg-gradient-to-b ${
@@ -144,7 +153,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Critical Fibres</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Critical</span>
         </div>
         <div className="mt-3">
           <div className="flex items-baseline justify-between">
@@ -156,7 +165,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         </div>
       </div>
 
-      {/* Card 6: Super Critical Fibres */}
+      {/* Card 6: Super Critical Sections */}
       <div 
         onClick={() => onCardClick && onCardClick('superCritical')}
         className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none bg-gradient-to-b ${

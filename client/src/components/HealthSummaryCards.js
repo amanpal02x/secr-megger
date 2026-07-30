@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { getDashboardStats } from '../utils/conditionUtils';
+import { getStats } from '../utils/api';
 
 const CARDS = [
   {
-    key: 'total',
-    label: 'Total Tests',
-    sub: 'All submitted records',
+    key: 'sectionsCovered',
+    label: 'Sections Covered',
+    sub: 'Unique sections tested',
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        <path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
       </svg>
     ),
     barClass: 'bg-navy-600',
@@ -85,18 +85,35 @@ const CARDS = [
 
 export default function HealthSummaryCards({ entries = [], activeFilter, onCardClick }) {
   const stats = getDashboardStats(entries);
+  const [totalSections, setTotalSections] = useState(10);
+
+  useEffect(() => {
+    getStats()
+      .then((res) => {
+        if (res && typeof res.totalSections === 'number') {
+          setTotalSections(res.totalSections);
+        }
+      })
+      .catch((err) => console.error('Error fetching total sections:', err));
+  }, []);
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
       {CARDS.map((card) => {
-        const value = stats[card.key] ?? 0;
-        const display = card.isPercent ? `${value}%` : value;
+        let display = stats[card.key] ?? 0;
+        if (card.key === 'sectionsCovered') {
+          display = `${stats.uniqueTotal || 0} / ${Math.max(stats.uniqueTotal || 0, totalSections)}`;
+        } else if (card.isPercent) {
+          display = `${display}%`;
+        }
 
-        // Since the health score metric is hidden, all remaining summary cards are entry category filters.
         const isClickable = true;
         const cardKeyNorm = card.key.toLowerCase().replace(/[\s_]+/g, '');
         const activeFilterNorm = activeFilter?.toLowerCase().replace(/[\s_]+/g, '');
-        const isActive = isClickable && activeFilterNorm === cardKeyNorm;
+        const isActive = isClickable && (
+          (card.key === 'sectionsCovered' && activeFilterNorm === 'total') ||
+          (cardKeyNorm === activeFilterNorm)
+        );
 
         const activeStyles = isActive
           ? 'border-navy-500 ring-2 ring-navy-500/15 bg-navy-50/20 shadow-md scale-[1.02]'
@@ -107,7 +124,7 @@ export default function HealthSummaryCards({ entries = [], activeFilter, onCardC
         return (
           <div
             key={card.key}
-            onClick={isClickable && onCardClick ? () => onCardClick(card.key) : undefined}
+            onClick={isClickable && onCardClick ? () => onCardClick(card.key === 'sectionsCovered' ? 'total' : card.key) : undefined}
             className={`relative rounded-xl border shadow-sm overflow-hidden transition-all duration-200 ${activeStyles}`}
           >
             {/* Top colour bar */}
@@ -122,7 +139,7 @@ export default function HealthSummaryCards({ entries = [], activeFilter, onCardC
               </div>
 
               {/* Value */}
-              <div className={`text-2xl md:text-3xl font-bold leading-none mb-1 ${card.valueClass}`}>
+              <div className={`text-xl md:text-2xl font-bold leading-none mb-1 ${card.valueClass}`}>
                 {display}
               </div>
 

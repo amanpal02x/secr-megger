@@ -3,6 +3,7 @@ import { getStations, createOtdrReport, getOtdrReports, getDivisions, getMajorSe
 import { FormLabel, Input, Select, FieldError } from '../components/FormField';
 import { useAuth } from '../contexts/AuthContext';
 import OtdrAnalyticsCards from '../components/OtdrAnalyticsCards';
+import { getOtdrReportCondition } from '../utils/conditionUtils';
 
 const FIBRES = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6'];
 
@@ -99,16 +100,7 @@ function OtdrLogView({ setActivePage, showToast }) {
     }
 
     if (activeFilter && activeFilter !== 'total') {
-      const hasMatchingFibre = (r.fibreReadings || []).some(fr => {
-        const val = parseFloat(fr.dbKm);
-        if (isNaN(val)) return false;
-        if (activeFilter === 'excellent') return val < 0.40;
-        if (activeFilter === 'good') return val >= 0.40 && val <= 0.80;
-        if (activeFilter === 'critical') return val > 0.80 && val <= 1.00;
-        if (activeFilter === 'superCritical') return val > 1.00;
-        return false;
-      });
-      if (!hasMatchingFibre) return false;
+      if (getOtdrReportCondition(r) !== activeFilter) return false;
     }
 
     return true;

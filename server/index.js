@@ -929,17 +929,26 @@ app.get('/api/stats', authorize, async (req, res) => {
       query.divisionName = req.user.division;
     }
 
+    let locationMatch = {};
+    const userDiv = req.user.division;
+    if (userDiv) {
+      const divRegex = { $regex: new RegExp(`^${userDiv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      locationMatch = { division: divRegex };
+    }
 
-    const [total, good, fair, poor, critical, extremelyCritical] = await Promise.all([
+    const [total, good, fair, poor, critical, extremelyCritical, distinctSections] = await Promise.all([
       Entry.countDocuments(query),
       Entry.countDocuments({ ...query, condition: 'Good' }),
       Entry.countDocuments({ ...query, condition: 'Fair' }),
       Entry.countDocuments({ ...query, condition: 'Poor' }),
       Entry.countDocuments({ ...query, condition: 'Critical' }),
-      Entry.countDocuments({ ...query, condition: 'Extremely Critical' })
+      Entry.countDocuments({ ...query, condition: 'Extremely Critical' }),
+      Location.distinct('section', locationMatch)
     ]);
 
-    res.json({ total, good, fair, poor, critical, extremelyCritical });
+    const totalSections = distinctSections.length || 10;
+
+    res.json({ total, good, fair, poor, critical, extremelyCritical, totalSections });
   } catch (error) {
     console.error('Stats query error:', error);
     res.status(500).json({ message: 'Server Error' });

@@ -124,7 +124,7 @@ export function getDashboardStats(entries) {
   const uniqueTotal = uniqueLatestEntries.length;
   const healthScore = uniqueTotal > 0 ? Math.round((excellent / uniqueTotal) * 100) : 0;
 
-  return { total, excellent, good, critical, extremelyCritical, healthScore };
+  return { total, uniqueTotal, excellent, good, critical, extremelyCritical, healthScore };
 }
 
 /**
@@ -179,5 +179,36 @@ export function formatLowestMetricText(entry) {
   const lowest = getLowestMetric(entry);
   if (!lowest) return '—';
   return `${lowest.metric} (${lowest.rawValue} MΩ) - ${lowest.quadNo}`;
+}
+
+/**
+ * Classifies an OTDR report based on the worst fibre reading condition.
+ * @param {object} report - OtdrReport object with fibreReadings
+ * @returns {'excellent'|'good'|'critical'|'superCritical'}
+ */
+export function getOtdrReportCondition(report) {
+  const readings = report?.fibreReadings || [];
+  if (readings.length === 0) return 'excellent';
+
+  let worst = 'excellent';
+  for (const fr of readings) {
+    const val = parseFloat(fr.dbKm);
+    if (isNaN(val)) continue;
+    
+    let cond = 'excellent';
+    if (val > 1.00) cond = 'superCritical';
+    else if (val > 0.80) cond = 'critical';
+    else if (val >= 0.40) cond = 'good';
+
+    if (cond === 'superCritical') {
+      worst = 'superCritical';
+      break; // Worst possible
+    } else if (cond === 'critical' && worst !== 'superCritical') {
+      worst = 'critical';
+    } else if (cond === 'good' && worst !== 'superCritical' && worst !== 'critical') {
+      worst = 'good';
+    }
+  }
+  return worst;
 }
 
