@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getStats, getEntries, getEntry } from '../utils/api';
 import HealthSummaryCards from '../components/HealthSummaryCards';
 import LoadingScreen from '../components/LoadingScreen';
-import { getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
+import { getLowestMetric, formatLowestMetricText, getEntryCondition } from '../utils/conditionUtils';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function UserDashboard({ setActivePage }) {
