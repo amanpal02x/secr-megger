@@ -7,6 +7,7 @@ import { getOtdrReportCondition } from '../utils/conditionUtils';
 export default function MyOtdrReports({ setActivePage, showToast }) {
   const { dbUser } = useAuth();
   const [reports, setReports] = useState([]);
+  const [divisionReports, setDivisionReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -93,15 +94,18 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
     setLoading(true);
     setError(null);
     try {
-      let data;
+      let myData;
+      let allReports = [];
+      
       try {
-        data = await getMyOtdrReports();
+        myData = await getMyOtdrReports();
+        allReports = await getOtdrReports();
       } catch (err) {
-        // Fallback to getOtdrReports() if endpoint /api/otdr-reports/my returned 404
+        // Fallback if endpoint /api/otdr-reports/my returned 404/500
         if (err.response?.status === 404 || err.response?.status === 500) {
           console.warn('[MyOtdrReports] Endpoint /api/otdr-reports/my unavailable, using resilient fallback.');
-          const allReports = await getOtdrReports();
-          data = (allReports || []).filter(r => {
+          allReports = await getOtdrReports();
+          myData = (allReports || []).filter(r => {
             if (!dbUser) return true;
             const matchesId = r.userId && (r.userId._id === dbUser._id || String(r.userId) === String(dbUser._id));
             const matchesName = dbUser.name && (r.userName === dbUser.name || r.technicianName === dbUser.name);
@@ -113,7 +117,15 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
           throw err;
         }
       }
-      setReports(Array.isArray(data) ? data : []);
+
+      setReports(Array.isArray(myData) ? myData : []);
+
+      // Filter all reports to the current user's division to compute division-wide KPIs
+      const divData = (allReports || []).filter(r => {
+        if (!dbUser || !dbUser.division) return true; // Show all if user has no division
+        return r.division && r.division.trim().toLowerCase() === dbUser.division.trim().toLowerCase();
+      });
+      setDivisionReports(divData);
     } catch (err) {
       console.error('Error loading my OTDR reports:', err);
       setError('Failed to load your OTDR reports. Please try again.');
@@ -143,7 +155,7 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
       <div className="p-4 md:p-8 flex-1 max-w-[1500px] mx-auto w-full space-y-6">
         
         {/* KPI & Analytics Cards Bar */}
-        <OtdrAnalyticsCards reports={reports} activeFilter={activeFilter} onCardClick={setActiveFilter} />
+        <OtdrAnalyticsCards reports={divisionReports} activeFilter={activeFilter} onCardClick={setActiveFilter} />
 
         {/* Search, Filter & Sort Controls Bar */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">

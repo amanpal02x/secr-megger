@@ -4,7 +4,7 @@ import { getOtdrReportCondition } from '../utils/conditionUtils';
 
 export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'total', onCardClick = null }) {
   const loading = reports === null;
-  const [totalSections, setTotalSections] = useState(10);
+  const [totalSections, setTotalSections] = useState(null);
 
   useEffect(() => {
     getOtdrReportStats()
@@ -60,10 +60,10 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
       totalTestRecords: reportsList.length,
       sectionsCovered: {
         covered: uniqueRoutes.size,
-        total: Math.max(uniqueRoutes.size, totalSections)
+        total: totalSections !== null ? Math.max(uniqueRoutes.size, totalSections) : null
       }
     };
-  }, [reports]);
+  }, [reports, totalSections]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
@@ -73,7 +73,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         onClick={() => onCardClick && onCardClick('total')}
         className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none ${
           activeFilter === 'total'
-            ? 'border-navy-400 bg-navy-50/20 ring-2 ring-navy-800 scale-[1.01]'
+            ? 'border-navy-500 bg-navy-50/40 ring-2 ring-navy-600 scale-[1.01]'
             : 'bg-white border-slate-200 hover:border-slate-350'
         }`}
       >
@@ -94,7 +94,7 @@ export default function OtdrAnalyticsCards({ reports = null, activeFilter = 'tot
         </div>
         <div className="mt-3">
           <p className="text-2xl font-black text-navy-900 font-mono">
-            {loading ? '…' : `${stats.sectionsCovered?.covered || 0} / ${stats.sectionsCovered?.total || 0}`}
+            {loading || stats.sectionsCovered?.total === null ? '…' : `${stats.sectionsCovered?.covered || 0} / ${stats.sectionsCovered?.total}`}
           </p>
         </div>
       </div>

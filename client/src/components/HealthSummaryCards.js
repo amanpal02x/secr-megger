@@ -85,7 +85,7 @@ const CARDS = [
 
 export default function HealthSummaryCards({ entries = [], activeFilter, onCardClick }) {
   const stats = getDashboardStats(entries);
-  const [totalSections, setTotalSections] = useState(10);
+  const [totalSections, setTotalSections] = useState(null);
   const [remainingSections, setRemainingSections] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
@@ -110,7 +110,7 @@ export default function HealthSummaryCards({ entries = [], activeFilter, onCardC
         {CARDS.map((card) => {
           let display = stats[card.key] ?? 0;
           if (card.key === 'sectionsCovered') {
-            display = `${stats.uniqueTotal || 0} / ${Math.max(stats.uniqueTotal || 0, totalSections)}`;
+            display = totalSections === null ? '…' : `${stats.uniqueTotal || 0} / ${Math.max(stats.uniqueTotal || 0, totalSections)}`;
           } else if (card.isPercent) {
             display = `${display}%`;
           }
