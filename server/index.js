@@ -930,25 +930,27 @@ app.get('/api/stats', authorize, async (req, res) => {
     }
 
     let locationMatch = {};
-    const userDiv = req.user.division;
-    if (userDiv) {
-      const divRegex = { $regex: new RegExp(`^${userDiv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    if (['user', 'sub_admin'].includes(req.user.role) && req.user.division) {
+      const divRegex = { $regex: new RegExp(`^${req.user.division.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
       locationMatch = { division: divRegex };
     }
 
-    const [total, good, fair, poor, critical, extremelyCritical, distinctSections] = await Promise.all([
+    const [total, good, fair, poor, critical, extremelyCritical, distinctSections, coveredSections] = await Promise.all([
       Entry.countDocuments(query),
       Entry.countDocuments({ ...query, condition: 'Good' }),
       Entry.countDocuments({ ...query, condition: 'Fair' }),
       Entry.countDocuments({ ...query, condition: 'Poor' }),
       Entry.countDocuments({ ...query, condition: 'Critical' }),
       Entry.countDocuments({ ...query, condition: 'Extremely Critical' }),
-      Location.distinct('section', locationMatch)
+      Location.distinct('section', locationMatch),
+      Entry.distinct('sectionName', query)
     ]);
 
     const totalSections = distinctSections.length || 10;
+    const coveredSet = new Set(coveredSections.map(s => String(s).trim().toLowerCase()));
+    const remainingSections = distinctSections.filter(s => s && !coveredSet.has(s.trim().toLowerCase())).sort();
 
-    res.json({ total, good, fair, poor, critical, extremelyCritical, totalSections });
+    res.json({ total, good, fair, poor, critical, extremelyCritical, totalSections, remainingSections });
   } catch (error) {
     console.error('Stats query error:', error);
     res.status(500).json({ message: 'Server Error' });

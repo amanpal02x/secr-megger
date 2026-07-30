@@ -86,76 +86,141 @@ const CARDS = [
 export default function HealthSummaryCards({ entries = [], activeFilter, onCardClick }) {
   const stats = getDashboardStats(entries);
   const [totalSections, setTotalSections] = useState(10);
+  const [remainingSections, setRemainingSections] = useState([]);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     getStats()
       .then((res) => {
-        if (res && typeof res.totalSections === 'number') {
-          setTotalSections(res.totalSections);
+        if (res) {
+          if (typeof res.totalSections === 'number') {
+            setTotalSections(res.totalSections);
+          }
+          if (Array.isArray(res.remainingSections)) {
+            setRemainingSections(res.remainingSections);
+          }
         }
       })
       .catch((err) => console.error('Error fetching total sections:', err));
   }, []);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-      {CARDS.map((card) => {
-        let display = stats[card.key] ?? 0;
-        if (card.key === 'sectionsCovered') {
-          display = `${stats.uniqueTotal || 0} / ${Math.max(stats.uniqueTotal || 0, totalSections)}`;
-        } else if (card.isPercent) {
-          display = `${display}%`;
-        }
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+        {CARDS.map((card) => {
+          let display = stats[card.key] ?? 0;
+          if (card.key === 'sectionsCovered') {
+            display = `${stats.uniqueTotal || 0} / ${Math.max(stats.uniqueTotal || 0, totalSections)}`;
+          } else if (card.isPercent) {
+            display = `${display}%`;
+          }
 
-        const isClickable = true;
-        const cardKeyNorm = card.key.toLowerCase().replace(/[\s_]+/g, '');
-        const activeFilterNorm = activeFilter?.toLowerCase().replace(/[\s_]+/g, '');
-        const isActive = isClickable && (
-          (card.key === 'sectionsCovered' && activeFilterNorm === 'total') ||
-          (cardKeyNorm === activeFilterNorm)
-        );
+          const isClickable = true;
+          const cardKeyNorm = card.key.toLowerCase().replace(/[\s_]+/g, '');
+          const activeFilterNorm = activeFilter?.toLowerCase().replace(/[\s_]+/g, '');
+          const isActive = isClickable && (
+            (card.key === 'sectionsCovered' && activeFilterNorm === 'total') ||
+            (cardKeyNorm === activeFilterNorm)
+          );
 
-        const activeStyles = isActive
-          ? 'border-navy-500 ring-2 ring-navy-500/15 bg-navy-50/20 shadow-md scale-[1.02]'
-          : isClickable
-            ? 'hover:-translate-y-0.5 hover:shadow-md border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
-            : 'border-slate-200 bg-white';
+          const activeStyles = isActive
+            ? 'border-navy-500 ring-2 ring-navy-500/15 bg-navy-50/20 shadow-md scale-[1.02]'
+            : isClickable
+              ? 'hover:-translate-y-0.5 hover:shadow-md border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
+              : 'border-slate-200 bg-white';
 
-        return (
-          <div
-            key={card.key}
-            onClick={isClickable && onCardClick ? () => onCardClick(card.key === 'sectionsCovered' ? 'total' : card.key) : undefined}
-            className={`relative rounded-xl border shadow-sm overflow-hidden transition-all duration-200 ${activeStyles}`}
-          >
-            {/* Top colour bar */}
-            <div className={`h-1 w-full ${card.barClass}`} />
+          return (
+            <div
+              key={card.key}
+              onClick={card.key === 'sectionsCovered'
+                ? () => setShowModal(true)
+                : (isClickable && onCardClick ? () => onCardClick(card.key) : undefined)
+              }
+              className={`relative rounded-xl border shadow-sm overflow-hidden transition-all duration-200 ${activeStyles}`}
+            >
+              {/* Top colour bar */}
+              <div className={`h-1 w-full ${card.barClass}`} />
 
-            <div className="p-3 md:p-4">
-              {/* Icon + value row */}
-              <div className="flex items-start justify-between mb-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>
-                  {card.icon}
+              <div className="p-3 md:p-4">
+                {/* Icon + value row */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    {card.icon}
+                  </div>
+                </div>
+
+                {/* Value */}
+                <div className={`text-xl md:text-2xl font-bold leading-none mb-1 ${card.valueClass}`}>
+                  {display}
+                </div>
+
+                {/* Label */}
+                <div className="text-xs font-semibold text-navy-800 truncate" title={card.label}>
+                  {card.label}
+                </div>
+
+                {/* Sub-label */}
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                  {card.sub}
                 </div>
               </div>
+            </div>
+          );
+        })}
+      </div>
 
-              {/* Value */}
-              <div className={`text-xl md:text-2xl font-bold leading-none mb-1 ${card.valueClass}`}>
-                {display}
+      {showModal && (() => {
+        const maxRemaining = Math.max(0, totalSections - (stats.uniqueTotal || 0));
+        const displayRemainingSections = remainingSections.slice(0, maxRemaining);
+        
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md flex flex-col max-h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h3 className="font-bold text-navy-900 text-base">Uncovered Sections</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{displayRemainingSections.length} sections pending test</p>
+                </div>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
               </div>
 
-              {/* Label */}
-              <div className="text-xs font-semibold text-navy-800 truncate" title={card.label}>
-                {card.label}
+              {/* List */}
+              <div className="flex-1 p-6 overflow-y-auto scrollbar-thin space-y-2">
+                {displayRemainingSections.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 text-sm">
+                    🎉 All sections have been successfully covered!
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {displayRemainingSections.map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 border border-slate-150 rounded-lg text-xs font-semibold text-navy-800">
+                        <span className="w-5 h-5 rounded-full bg-navy-50 border border-navy-100 flex items-center justify-center text-[10px] text-navy-700 font-bold">{idx + 1}</span>
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Sub-label */}
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                {card.sub}
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/30">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="bg-navy-900 hover:bg-navy-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
         );
-      })}
-    </div>
+      })()}
+    </>
   );
 }
