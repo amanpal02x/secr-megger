@@ -64,11 +64,46 @@ export default function EntryForm({ setActivePage, showToast }) {
   const [uploadType, setUploadType] = useState('records'); // 'records' or 'master'
   const [bulkFile, setBulkFile] = useState(null);
 
-  const refreshDropdowns = () => {
-    getDivisions().then(setDivisions);
-  };
+  useEffect(() => {
+    getDivisions().then(divsList => {
+      setDivisions(divsList);
+      
+      const userDivName = dbUser?.division;
+      if (userDivName) {
+        const matchedDiv = divsList.find(
+          d => d.name.toLowerCase() === userDivName.toLowerCase()
+        );
+        if (matchedDiv) {
+          setForm(f => ({
+            ...f,
+            divisionId: matchedDiv.id,
+            divisionName: matchedDiv.name,
+          }));
+          getMajorSections(matchedDiv.id).then(setMajorSections);
+        }
+      }
+    });
+  }, [dbUser]);
 
-  useEffect(() => { refreshDropdowns(); }, []);
+  const handleReset = () => {
+    const defaultForm = { ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' };
+    const userDivName = dbUser?.division;
+    if (userDivName && divisions.length > 0) {
+      const matchedDiv = divisions.find(
+        d => d.name.toLowerCase() === userDivName.toLowerCase()
+      );
+      if (matchedDiv) {
+        defaultForm.divisionId = matchedDiv.id;
+        defaultForm.divisionName = matchedDiv.name;
+        getMajorSections(matchedDiv.id).then(setMajorSections);
+      }
+    } else {
+      setMajorSections([]);
+    }
+    setForm(defaultForm);
+    setErrors({});
+    setSections([]);
+  };
 
   const set = (name, val) => {
     setForm(f => {
@@ -287,15 +322,17 @@ export default function EntryForm({ setActivePage, showToast }) {
           <SectionPanel number="01" title="Location & Testing Date Information"
             icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <FormLabel required>Division</FormLabel>
-                <Select value={form.divisionId} onChange={handleDivision} error={errors.divisionId}>
-                  <option value="">Select Division</option>
-                  {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </Select>
-                <FieldError message={errors.divisionId} />
-              </div>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${dbUser?.division ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
+              {!dbUser?.division && (
+                <div>
+                  <FormLabel required>Division</FormLabel>
+                  <Select value={form.divisionId} onChange={handleDivision} error={errors.divisionId}>
+                    <option value="">Select Division</option>
+                    {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </Select>
+                  <FieldError message={errors.divisionId} />
+                </div>
+              )}
               <div>
                 <FormLabel required>Major Section</FormLabel>
                 <Select value={form.majorSectionId} onChange={handleMajorSection} disabled={!form.divisionId} error={errors.majorSectionId}>
@@ -440,7 +477,7 @@ export default function EntryForm({ setActivePage, showToast }) {
         {/* Sticky footer */}
         <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 md:px-8 py-4 flex flex-row justify-end gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-20">
           <button type="button"
-            onClick={() => { setForm({ ...EMPTY, userName: dbUser?.name || '', technicianName: dbUser?.name || '' }); setErrors({}); setMajorSections([]); setSections([]); }}
+            onClick={handleReset}
             className="flex-1 md:flex-none px-5 py-2.5 text-sm font-medium text-navy-700 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
           >
             Reset

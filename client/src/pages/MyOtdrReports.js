@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getMyOtdrReports, getOtdrReports } from '../utils/api';
+import { getMyOtdrReports, getOtdrReports, getOtdrReportById } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import OtdrAnalyticsCards from '../components/OtdrAnalyticsCards';
 
@@ -13,9 +13,40 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
   const [search, setSearch] = useState('');
   const [wavelengthFilter, setWavelengthFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'oldest'
+  const [activeFilter, setActiveFilter] = useState('total');
+  const [visibleCount, setVisibleCount] = useState(25);
 
   // Modal Detail View State
   const [selectedReport, setSelectedReport] = useState(null);
+  const [loadingDetailsId, setLoadingDetailsId] = useState(null);
+
+  const handleViewDetails = async (report) => {
+    setLoadingDetailsId(report.id || report._id);
+    try {
+      const fullReport = await getOtdrReportById(report.id || report._id);
+      setSelectedReport(fullReport);
+    } catch (err) {
+      console.error('Failed to fetch details:', err);
+    } finally {
+      setLoadingDetailsId(null);
+    }
+  };
+
+  useEffect(() => {
+    setVisibleCount(25);
+  }, [search, wavelengthFilter, sortBy, activeFilter]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 100) {
+        if (visibleCount < filteredAndSortedReports.length) {
+          setVisibleCount(prev => prev + 25);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredAndSortedReports, visibleCount]);
 
   useEffect(() => {
     fetchMyReports();
@@ -76,6 +107,19 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
         if (wavelengthFilter !== 'ALL') {
           if (r.wavelength !== wavelengthFilter) return false;
         }
+        // Condition card filter
+        if (activeFilter && activeFilter !== 'total') {
+          const hasMatchingFibre = (r.fibreReadings || []).some(fr => {
+            const val = parseFloat(fr.dbKm);
+            if (isNaN(val)) return false;
+            if (activeFilter === 'excellent') return val < 0.40;
+            if (activeFilter === 'good') return val >= 0.40 && val <= 0.80;
+            if (activeFilter === 'critical') return val > 0.80 && val <= 1.00;
+            if (activeFilter === 'superCritical') return val > 1.00;
+            return false;
+          });
+          if (!hasMatchingFibre) return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -83,7 +127,11 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
         const timeB = new Date(b.createdAt || b.testDate).getTime();
         return sortBy === 'newest' ? timeB - timeA : timeA - timeB;
       });
-  }, [reports, search, wavelengthFilter, sortBy]);
+  }, [reports, search, wavelengthFilter, sortBy, activeFilter]);
+
+  const displayedReports = useMemo(() => {
+    return filteredAndSortedReports.slice(0, visibleCount);
+  }, [filteredAndSortedReports, visibleCount]);
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
@@ -98,25 +146,12 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
             Your personal register of submitted Optical Time-Domain Reflectometer reports
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setActivePage('otdr')}
-            className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-navy-900 hover:bg-navy-800 text-gold-400 font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm text-xs md:text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Create New OTDR Report
-          </button>
-        </div>
       </div>
 
       <div className="p-4 md:p-8 flex-1 max-w-[1500px] mx-auto w-full space-y-6">
         
         {/* KPI & Analytics Cards Bar */}
-        <OtdrAnalyticsCards reports={reports} />
+        <OtdrAnalyticsCards reports={reports} activeFilter={activeFilter} onCardClick={setActiveFilter} />
 
         {/* Search, Filter & Sort Controls Bar */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
@@ -162,10 +197,10 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
               </select>
             </div>
 
-            {(search || wavelengthFilter !== 'ALL') && (
+            {(search || wavelengthFilter !== 'ALL' || activeFilter !== 'total') && (
               <button
                 type="button"
-                onClick={() => { setSearch(''); setWavelengthFilter('ALL'); }}
+                onClick={() => { setSearch(''); setWavelengthFilter('ALL'); setActiveFilter('total'); }}
                 className="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-1 underline"
               >
                 Clear Filters
@@ -204,18 +239,10 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
               <h3 className="text-base font-bold text-navy-900">No OTDR Reports Found</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm">
                 {reports.length === 0
-                  ? "You haven't submitted any OTDR reports yet. Click 'Create New OTDR Report' to submit your first observation record."
+                  ? "You haven't submitted any OTDR reports yet."
                   : "No reports match your current search and filter criteria."}
               </p>
             </div>
-            {reports.length === 0 && (
-              <button
-                onClick={() => setActivePage('otdr')}
-                className="mt-2 bg-navy-900 text-gold-400 text-xs font-bold px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors"
-              >
-                Create OTDR Report Now
-              </button>
-            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -224,7 +251,7 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                     <th className="px-4 py-3.5">Test Date</th>
-                    <th className="px-4 py-3.5">Route (From &rarr; To)</th>
+                    <th className="px-4 py-3.5">Route / Section</th>
                     <th className="px-4 py-3.5">Division</th>
                     <th className="px-4 py-3.5">Fibre Length</th>
                     <th className="px-4 py-3.5">Wavelength</th>
@@ -233,15 +260,15 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredAndSortedReports.map((report) => {
+                  {displayedReports.map((report) => {
                     return (
                       <tr key={report.id || report._id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-4 py-3.5 font-mono font-semibold text-navy-900 whitespace-nowrap">
                           {report.testDate}
                         </td>
                         <td className="px-4 py-3.5 font-bold text-navy-800 whitespace-nowrap">
-                          <span className="bg-navy-50 text-navy-900 border border-navy-100 px-2 py-0.5 rounded text-xs">
-                            {report.fromStation} &rarr; {report.toStation}
+                          <span className="bg-navy-50 text-navy-900 border border-navy-100 px-2 py-0.5 rounded text-xs font-semibold">
+                            {report.sectionName || `${report.fromStation} → ${report.toStation}`}
                           </span>
                         </td>
                         <td className="px-4 py-3.5 font-semibold text-slate-800">
@@ -261,14 +288,19 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                         <td className="px-4 py-3.5 text-center">
                           <button
                             type="button"
-                            onClick={() => setSelectedReport(report)}
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-900 hover:text-white bg-gold-400/20 hover:bg-navy-900 border border-gold-400/50 hover:border-navy-900 px-3 py-1.5 rounded-lg transition-all shadow-sm"
+                            disabled={loadingDetailsId !== null}
+                            onClick={() => handleViewDetails(report)}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-900 hover:text-white bg-gold-400/20 hover:bg-navy-900 border border-gold-400/50 hover:border-navy-900 px-3 py-1.5 rounded-lg transition-all shadow-sm disabled:opacity-55"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View Report Details
+                            {loadingDetailsId === (report.id || report._id) ? (
+                              <div className="w-3.5 h-3.5 border-2 border-navy-900 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            )}
+                            {loadingDetailsId === (report.id || report._id) ? 'Loading...' : 'View Report Details'}
                           </button>
                         </td>
                       </tr>
@@ -338,20 +370,37 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                   <h4 className="font-semibold text-sm">General Information</h4>
                 </div>
                 <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-slate-400">From Station</label>
-                    <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.fromStation}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase text-slate-400">To Station</label>
-                    <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.toStation}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase text-slate-400">Division</label>
-                    <p className="text-sm font-semibold text-slate-800 mt-0.5">{selectedReport.division || selectedReport.agencyName || dbUser?.division || 'Bilaspur'}</p>
-                  </div>
+                  {selectedReport.sectionName ? (
+                    <>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">Division</label>
+                        <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.divisionName || selectedReport.division}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">Major Section</label>
+                        <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.majorSectionName}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">Section</label>
+                        <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.sectionName}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">From Station</label>
+                        <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.fromStation}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">To Station</label>
+                        <p className="text-sm font-bold text-navy-800 mt-0.5">{selectedReport.toStation}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase text-slate-400">Division</label>
+                        <p className="text-sm font-semibold text-slate-800 mt-0.5">{selectedReport.division || selectedReport.agencyName || dbUser?.division || 'Bilaspur'}</p>
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="text-xs font-bold uppercase text-slate-400">Date of Testing</label>
@@ -440,6 +489,33 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
                   </table>
                 </div>
               </div>
+
+              {selectedReport.attachment && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-5">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-2">Evidence Attachment</p>
+                  {selectedReport.attachment.startsWith('data:image/') ? (
+                    <div className="relative group cursor-pointer w-fit" onClick={() => window.open(selectedReport.attachment, '_blank')}>
+                      <img src={selectedReport.attachment} alt="Evidence" className="h-20 w-32 object-cover rounded border border-slate-200" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = selectedReport.attachment;
+                        link.download = `otdr_attachment_${selectedReport.id}`;
+                        link.click();
+                      }}
+                      className="flex items-center gap-1.5 text-xs font-bold text-navy-600 hover:text-navy-800"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                      Download Attachment
+                    </button>
+                  )}
+                </div>
+              )}
 
             </div>
 

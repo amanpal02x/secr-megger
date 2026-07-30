@@ -89,12 +89,30 @@ export function getDashboardStats(entries) {
     return { total: 0, excellent: 0, good: 0, critical: 0, extremelyCritical: 0, healthScore: 0 };
   }
 
+  // Get the latest entry per section based strictly on testDate
+  const latestBySection = {};
+  for (const entry of entries) {
+    const key = entry.sectionId || entry.sectionName || `${entry.fromStation || ''}-${entry.toStation || ''}` || 'unknown';
+    const dateStr = entry.testDate;
+    let time = 0;
+    if (dateStr) {
+      const parsed = Date.parse(dateStr);
+      if (!isNaN(parsed)) {
+        time = parsed;
+      }
+    }
+    if (!latestBySection[key] || time > latestBySection[key].time) {
+      latestBySection[key] = { entry, time };
+    }
+  }
+  const uniqueLatestEntries = Object.values(latestBySection).map(item => item.entry);
+
   let excellent = 0;
   let good = 0;
   let critical = 0;
   let extremelyCritical = 0;
 
-  for (const entry of entries) {
+  for (const entry of uniqueLatestEntries) {
     const cond = getEntryCondition(entry);
     if (cond === 'Extremely Critical') extremelyCritical++;
     else if (cond === 'Critical') critical++;
@@ -103,7 +121,8 @@ export function getDashboardStats(entries) {
   }
 
   const total = entries.length;
-  const healthScore = total > 0 ? Math.round((excellent / total) * 100) : 0;
+  const uniqueTotal = uniqueLatestEntries.length;
+  const healthScore = uniqueTotal > 0 ? Math.round((excellent / uniqueTotal) * 100) : 0;
 
   return { total, excellent, good, critical, extremelyCritical, healthScore };
 }

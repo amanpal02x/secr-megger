@@ -357,11 +357,11 @@ app.get('/api/otdr-reports', protect, async (req, res) => {
       if (req.user.username) {
         userConditions.push({ userName: req.user.username });
       }
-      const reports = await OtdrReport.find({ $or: userConditions }).sort({ createdAt: -1 });
+      const reports = await OtdrReport.find({ $or: userConditions }).select('-attachment').sort({ createdAt: -1 });
       return res.json(reports);
     }
 
-    const reports = await OtdrReport.find({}).sort({ createdAt: -1 });
+    const reports = await OtdrReport.find({}).select('-attachment').sort({ createdAt: -1 });
     res.json(reports);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching OTDR reports' });
@@ -386,7 +386,7 @@ app.get('/api/otdr-reports/my', protect, async (req, res) => {
       userConditions.push({ userName: req.user.username });
     }
 
-    const reports = await OtdrReport.find({ $or: userConditions }).sort({ createdAt: -1 });
+    const reports = await OtdrReport.find({ $or: userConditions }).select('-attachment').sort({ createdAt: -1 });
     res.json(reports);
   } catch (err) {
     console.error('Error fetching user OTDR reports:', err);
@@ -428,15 +428,30 @@ app.post('/api/otdr-reports', protect, async (req, res) => {
       return res.status(403).json({ message: 'Administrative roles cannot submit OTDR reports. Access is read-only.' });
     }
 
-    const { testDate, division, agencyName, fromStation, toStation, fibreLength, wavelength, eventHeaders, fibreReadings } = req.body;
+    const { 
+      testDate, 
+      division, 
+      divisionId,
+      divisionName,
+      majorSectionId,
+      majorSectionName,
+      sectionId,
+      sectionName,
+      agencyName, 
+      fromStation, 
+      toStation, 
+      fibreLength, 
+      wavelength, 
+      eventHeaders, 
+      fibreReadings, 
+      attachment 
+    } = req.body;
     
     // Server-side Validations
     if (!testDate) return res.status(400).json({ message: 'Date of Testing is required' });
-    if (!fromStation) return res.status(400).json({ message: 'From Station is required' });
-    if (!toStation) return res.status(400).json({ message: 'To Station is required' });
-    if (fromStation.toUpperCase() === toStation.toUpperCase()) {
-      return res.status(400).json({ message: 'From Station and To Station cannot be the same' });
-    }
+    if (!divisionId) return res.status(400).json({ message: 'Division is required' });
+    if (!majorSectionId) return res.status(400).json({ message: 'Major Section is required' });
+    if (!sectionId) return res.status(400).json({ message: 'Section is required' });
     if (!fibreLength || isNaN(Number(fibreLength))) {
       return res.status(400).json({ message: 'Fibre Length must be a numeric value' });
     }
@@ -463,10 +478,16 @@ app.post('/api/otdr-reports', protect, async (req, res) => {
     const report = new OtdrReport({
       id: reportId,
       testDate,
-      division: division || (req.user ? req.user.division : ''),
+      division: divisionName || division || (req.user ? req.user.division : ''),
+      divisionId,
+      divisionName,
+      majorSectionId,
+      majorSectionName,
+      sectionId,
+      sectionName,
       agencyName: agencyName ? agencyName.trim() : '',
-      fromStation,
-      toStation,
+      fromStation: fromStation || '',
+      toStation: toStation || '',
       fibreLength: String(fibreLength),
       wavelength,
       eventHeaders: eventHeaders || ['Event 1', 'Event 2', 'Event 3', 'Event 4'],
@@ -474,6 +495,7 @@ app.post('/api/otdr-reports', protect, async (req, res) => {
       userName: req.user ? req.user.name : undefined,
       technicianName: req.user ? req.user.name : undefined,
       userId: req.user ? req.user._id : undefined,
+      attachment,
     });
 
     await report.save();

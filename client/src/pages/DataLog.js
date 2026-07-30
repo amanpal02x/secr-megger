@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { getEntries, getEntry, deleteEntry, getDivisions } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import HealthSummaryCards from '../components/HealthSummaryCards';
-import { getQuadCondition, getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
+import { getQuadCondition, getEntryCondition, getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
 import * as XLSX from 'xlsx';
 
 export default function DataLog({ showToast }) {
@@ -14,9 +14,15 @@ export default function DataLog({ showToast }) {
   const [filterDiv, setFilterDiv] = useState('');
   const [filterMajorSec, setFilterMajorSec] = useState('');
   const [filterSec, setFilterSec] = useState('');
+  const [activeFilter, setActiveFilter] = useState('total');
+  const [visibleCount, setVisibleCount] = useState(25);
   const [expandedId, setExpandedId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setVisibleCount(25);
+  }, [search, filterDiv, filterMajorSec, filterSec, activeFilter]);
 
   const isGlobalAdmin = ['admin', 'global_admin'].includes(dbUser?.role);
   const isSubAdmin = dbUser?.role === 'sub_admin';
@@ -44,9 +50,18 @@ export default function DataLog({ showToast }) {
       if (filterSec && e.sectionName !== filterSec) {
         return false;
       }
+      if (activeFilter && activeFilter !== 'total') {
+        const condNorm = getEntryCondition(e).toLowerCase().replace(/[\s_]+/g, '');
+        const filterNorm = activeFilter.toLowerCase().replace(/[\s_]+/g, '');
+        if (condNorm !== filterNorm) return false;
+      }
       return true;
     });
-  }, [entries, filterMajorSec, filterSec]);
+  }, [entries, filterMajorSec, filterSec, activeFilter]);
+
+  const displayedEntries = useMemo(() => {
+    return filteredEntries.slice(0, visibleCount);
+  }, [filteredEntries, visibleCount]);
 
   const handleDivChange = (val) => {
     setFilterDiv(val);
@@ -268,6 +283,14 @@ export default function DataLog({ showToast }) {
                 Refresh
               </button>
             )}
+            {(filterMajorSec || filterSec || activeFilter !== 'total') && (
+              <button 
+                onClick={() => { setFilterMajorSec(''); setFilterSec(''); setActiveFilter('total'); }} 
+                className="flex-grow sm:flex-none flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-2 rounded-lg transition-all"
+              >
+                Clear Filters
+              </button>
+            )}
             <button onClick={handleExport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span className="hidden sm:inline">Export Report</span>
@@ -281,7 +304,11 @@ export default function DataLog({ showToast }) {
       <div className="flex-1 p-4 md:p-8 flex flex-col space-y-4 min-h-0 overflow-hidden">
         {/* Health Summary Cards (Fixed) */}
         <div className="shrink-0">
-          <HealthSummaryCards entries={entries} />
+          <HealthSummaryCards 
+            entries={entries} 
+            activeFilter={activeFilter} 
+            onCardClick={setActiveFilter} 
+          />
         </div>
 
         {/* Scrollable Records Table Container */}
@@ -297,7 +324,17 @@ export default function DataLog({ showToast }) {
               <p>No records found{search || filterDiv || filterMajorSec || filterSec ? ' for the selected filters.' : '.'}</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto scrollbar-thin">
+            <div 
+              onScroll={(e) => {
+                const { scrollTop, scrollHeight, clientHeight } = e.target;
+                if (scrollHeight - scrollTop - clientHeight < 100) {
+                  if (visibleCount < filteredEntries.length) {
+                    setVisibleCount(prev => prev + 25);
+                  }
+                }
+              }}
+              className="flex-1 overflow-auto scrollbar-thin"
+            >
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-sm">
                   <tr className="bg-slate-50 border-b border-slate-200">
@@ -312,7 +349,7 @@ export default function DataLog({ showToast }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEntries.map((e, i) => (
+                  {displayedEntries.map((e, i) => (
                     <React.Fragment key={e.id}>
                       <tr
                         onClick={() => toggle(e.id)}

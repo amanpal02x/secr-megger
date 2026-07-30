@@ -3,11 +3,13 @@ import { getStats, getEntries, getEntry } from '../utils/api';
 import HealthSummaryCards from '../components/HealthSummaryCards';
 import LoadingScreen from '../components/LoadingScreen';
 import { getLowestMetric, formatLowestMetricText } from '../utils/conditionUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function UserDashboard({ setActivePage }) {
+  const { dbUser } = useAuth();
   const [recent, setRecent] = useState([]);
   const [allEntries, setAllEntries] = useState([]);
-  const [activeFilter, setActiveFilter] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('total');
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +23,16 @@ export default function UserDashboard({ setActivePage }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const displayedEntries = activeFilter === 'Total' ? allEntries : recent;
+  const displayedEntries = useMemo(() => {
+    if (!activeFilter || activeFilter === 'total' || activeFilter.toLowerCase() === 'total') {
+      return allEntries;
+    }
+    return allEntries.filter(e => {
+      const condNorm = getEntryCondition(e).toLowerCase().replace(/[\s_]+/g, '');
+      const filterNorm = activeFilter.toLowerCase().replace(/[\s_]+/g, '');
+      return condNorm === filterNorm;
+    });
+  }, [allEntries, activeFilter]);
 
   const toggle = async (id) => {
     if (expandedId === id) {
@@ -49,8 +60,12 @@ export default function UserDashboard({ setActivePage }) {
       {/* Top Welcome Header */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">User Workspace</h1>
-          <p className="text-xs md:text-sm text-slate-500 mt-1">Record and manage your cable meggering tests</p>
+          <h1 className="text-xl md:text-2xl font-bold text-navy-900 tracking-tight">
+            Welcome back, {dbUser?.name || allEntries[0]?.userId?.name || 'User'}
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-1">
+            Manage your cable meggering tests • Total Tests: <span className="font-bold text-navy-700">{allEntries.length}</span>
+          </p>
         </div>
         <button
           onClick={() => setActivePage('entry')}
@@ -64,39 +79,19 @@ export default function UserDashboard({ setActivePage }) {
       <div className="flex-1 p-4 md:p-8 flex flex-col space-y-6 min-h-0 overflow-hidden">
         {/* KPI Cards & Stat Header Section (Fixed) */}
         <div className="shrink-0 space-y-6">
-          <div className="bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-700 font-bold text-lg">
-                {allEntries[0]?.userId?.name ? allEntries[0].userId.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div>
-                <h2 className="font-bold text-navy-900 text-base md:text-lg">
-                  {allEntries[0]?.userId?.name || 'Technician Workspace'}
-                </h2>
-                <p className="text-xs text-slate-400 font-medium">Logged in User</p>
-              </div>
-            </div>
-            
-            <div 
-              onClick={() => setActiveFilter(activeFilter === 'Total' ? null : 'Total')}
-              className={`relative overflow-hidden bg-white p-4 md:p-5 rounded-2xl border ${activeFilter === 'Total' ? 'border-navy-400 ring-2 ring-navy-400/20 shadow-md bg-navy-50/10' : 'border-slate-200'} shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95`}
-            >
-              <div className="pl-1">
-                <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Total Tests</p>
-                <p className="text-2xl md:text-3xl font-black text-navy-600">{allEntries.length}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Health Summary Cards */}
-          <HealthSummaryCards entries={allEntries} />
+          <HealthSummaryCards 
+            entries={allEntries} 
+            activeFilter={activeFilter} 
+            onCardClick={setActiveFilter} 
+          />
         </div>
 
         {/* Recent Submissions Table (Scrollable) */}
         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-bold text-navy-900">
-              {activeFilter === 'Total' ? 'All Submissions' : 'Your Recent Submissions'}
+              {activeFilter === 'total' ? 'All Submissions' : 'Your Recent Submissions'}
             </h3>
             <button onClick={() => setActivePage('log')} className="text-xs font-bold text-navy-600 hover:underline">View Full Log</button>
           </div>

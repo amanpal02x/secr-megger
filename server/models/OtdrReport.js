@@ -47,13 +47,19 @@ const otdrReportSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  divisionId: String,
+  divisionName: String,
+  majorSectionId: String,
+  majorSectionName: String,
+  sectionId: String,
+  sectionName: String,
   fromStation: {
     type: String,
-    required: true,
+    required: false,
   },
   toStation: {
     type: String,
-    required: true,
+    required: false,
   },
   fibreLength: {
     type: String,
@@ -75,6 +81,7 @@ const otdrReportSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  attachment: String,
   createdAt: {
     type: Date,
     default: Date.now,

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { getStations, createOtdrReport, getOtdrReports } from '../utils/api';
+import React, { useEffect, useState, useMemo } from 'react';
+import { getStations, createOtdrReport, getOtdrReports, getDivisions, getMajorSections, getSections } from '../utils/api';
 import { FormLabel, Input, Select, FieldError } from '../components/FormField';
 import { useAuth } from '../contexts/AuthContext';
 import OtdrAnalyticsCards from '../components/OtdrAnalyticsCards';
@@ -47,7 +47,36 @@ function OtdrLogView({ setActivePage, showToast }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('total');
+  const [visibleCount, setVisibleCount] = useState(25);
   const [expandedReportId, setExpandedReportId] = useState(null);
+  const [loadingReportId, setLoadingReportId] = useState(null);
+
+  const toggleReport = async (id) => {
+    if (expandedReportId === id) {
+      setExpandedReportId(null);
+      return;
+    }
+
+    const report = reports.find(x => x.id === id);
+    if (report && !report.isDetailLoaded) {
+      setLoadingReportId(id);
+      try {
+        const fullReport = await getOtdrReportById(id);
+        setReports(prev => prev.map(x => x.id === id ? { ...fullReport, isDetailLoaded: true } : x));
+      } catch (err) {
+        console.error('Failed to load OTDR report details:', err);
+        showToast('Failed to load report details.', 'error');
+      } finally {
+        setLoadingReportId(null);
+      }
+    }
+    setExpandedReportId(id);
+  };
+
+  useEffect(() => {
+    setVisibleCount(25);
+  }, [search, activeFilter]);
 
   useEffect(() => {
     getOtdrReports()
@@ -57,16 +86,49 @@ function OtdrLogView({ setActivePage, showToast }) {
   }, []);
 
   const filteredReports = reports.filter(r => {
-    if (!search.trim()) return true;
-    const term = search.toLowerCase();
-    return (
-      (r.agencyName && r.agencyName.toLowerCase().includes(term)) ||
-      (r.fromStation && r.fromStation.toLowerCase().includes(term)) ||
-      (r.toStation && r.toStation.toLowerCase().includes(term)) ||
-      (r.userName && r.userName.toLowerCase().includes(term)) ||
-      (r.testDate && r.testDate.includes(term))
-    );
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      const searchMatch = (
+        (r.agencyName && r.agencyName.toLowerCase().includes(term)) ||
+        (r.fromStation && r.fromStation.toLowerCase().includes(term)) ||
+        (r.toStation && r.toStation.toLowerCase().includes(term)) ||
+        (r.userName && r.userName.toLowerCase().includes(term)) ||
+        (r.testDate && r.testDate.includes(term))
+      );
+      if (!searchMatch) return false;
+    }
+
+    if (activeFilter && activeFilter !== 'total') {
+      const hasMatchingFibre = (r.fibreReadings || []).some(fr => {
+        const val = parseFloat(fr.dbKm);
+        if (isNaN(val)) return false;
+        if (activeFilter === 'excellent') return val < 0.40;
+        if (activeFilter === 'good') return val >= 0.40 && val <= 0.80;
+        if (activeFilter === 'critical') return val > 0.80 && val <= 1.00;
+        if (activeFilter === 'superCritical') return val > 1.00;
+        return false;
+      });
+      if (!hasMatchingFibre) return false;
+    }
+
+    return true;
   });
+
+  const displayedReports = useMemo(() => {
+    return filteredReports.slice(0, visibleCount);
+  }, [filteredReports, visibleCount]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 100) {
+        if (visibleCount < filteredReports.length) {
+          setVisibleCount(prev => prev + 25);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredReports, visibleCount]);
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
@@ -88,7 +150,7 @@ function OtdrLogView({ setActivePage, showToast }) {
 
       <div className="p-4 md:p-8 flex-1 max-w-[1500px] mx-auto w-full space-y-4">
         {/* Analytics Cards */}
-        <OtdrAnalyticsCards reports={reports} />
+        <OtdrAnalyticsCards reports={reports} activeFilter={activeFilter} onCardClick={setActiveFilter} />
 
         {/* Search Bar */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -104,8 +166,17 @@ function OtdrLogView({ setActivePage, showToast }) {
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </div>
-          <div className="text-xs text-slate-500 font-medium">
-            Showing {filteredReports.length} of {reports.length} records
+          <div className="text-xs text-slate-500 font-medium flex items-center gap-3">
+            {(search || activeFilter !== 'total') && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setActiveFilter('total'); }}
+                className="text-xs text-red-600 hover:text-red-800 font-semibold underline"
+              >
+                Clear Filters
+              </button>
+            )}
+            <span>Showing {filteredReports.length} of {reports.length} records</span>
           </div>
         </div>
 
@@ -125,7 +196,7 @@ function OtdrLogView({ setActivePage, showToast }) {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                     <th className="px-4 py-3.5">Test Date</th>
-                    <th className="px-4 py-3.5">Route (From → To)</th>
+                    <th className="px-4 py-3.5">Route / Section</th>
                     <th className="px-4 py-3.5">Division</th>
                     <th className="px-4 py-3.5">Length (Km)</th>
                     <th className="px-4 py-3.5">Wavelength</th>
@@ -134,7 +205,7 @@ function OtdrLogView({ setActivePage, showToast }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredReports.map((r) => {
+                  {displayedReports.map((r) => {
                     const isExpanded = expandedReportId === r.id;
                     const eventHeadersList = r.eventHeaders && r.eventHeaders.length ? r.eventHeaders : ['Event 1', 'Event 2', 'Event 3', 'Event 4'];
 
@@ -145,7 +216,9 @@ function OtdrLogView({ setActivePage, showToast }) {
                             {r.testDate}
                           </td>
                           <td className="px-4 py-3 font-bold text-navy-800 whitespace-nowrap">
-                            {r.fromStation} &rarr; {r.toStation}
+                            <span className="bg-navy-50 text-navy-900 border border-navy-100 px-2 py-0.5 rounded text-xs font-semibold">
+                              {r.sectionName || `${r.fromStation} → ${r.toStation}`}
+                            </span>
                           </td>
                           <td className="px-4 py-3 font-semibold text-slate-800">
                             {r.division || r.agencyName || 'Bilaspur'}
@@ -163,13 +236,20 @@ function OtdrLogView({ setActivePage, showToast }) {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
-                              onClick={() => setExpandedReportId(isExpanded ? null : r.id)}
-                              className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-700 hover:text-navy-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-3 py-1.5 rounded-md transition-all"
+                              disabled={loadingReportId !== null}
+                              onClick={() => toggleReport(r.id)}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-700 hover:text-navy-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-3 py-1.5 rounded-md transition-all disabled:opacity-60"
                             >
-                              <span>{isExpanded ? 'Hide Details' : 'View Observation Table'}</span>
-                              <svg className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                              </svg>
+                              {loadingReportId === r.id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-navy-700 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              )}
+                              <span>
+                                {loadingReportId === r.id ? 'Loading...' : isExpanded ? 'Hide Details' : 'View Observation Table'}
+                              </span>
                             </button>
                           </td>
                         </tr>
@@ -244,17 +324,26 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
   const todayDate = new Date().toISOString().split('T')[0];
   const userDivision = dbUser?.division || 'Bilaspur';
 
-  const [stations, setStations] = useState([]);
+  const [divisions, setDivisions] = useState([]);
+  const [majorSections, setMajorSections] = useState([]);
+  const [sections, setSections] = useState([]);
   const [eventHeaders, setEventHeaders] = useState([...INITIAL_EVENT_HEADERS]);
   
   const [form, setForm] = useState({
     testDate: todayDate,
     division: userDivision,
+    divisionId: '',
+    divisionName: '',
+    majorSectionId: '',
+    majorSectionName: '',
+    sectionId: '',
+    sectionName: '',
     fromStation: '',
     toStation: '',
     fibreLength: '',
     wavelength: '1310 nm',
     fibreReadings: createEmptyReadings(),
+    attachment: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -262,10 +351,53 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
   const [savedBanner, setSavedBanner] = useState(false);
 
   useEffect(() => {
-    getStations()
-      .then(data => setStations(data))
-      .catch(err => console.error('Error fetching stations:', err));
-  }, []);
+    getDivisions().then(divsList => {
+      setDivisions(divsList);
+      
+      const userDivName = dbUser?.division;
+      if (userDivName) {
+        const matchedDiv = divsList.find(
+          d => d.name.toLowerCase() === userDivName.toLowerCase()
+        );
+        if (matchedDiv) {
+          setForm(f => ({
+            ...f,
+            divisionId: matchedDiv.id,
+            divisionName: matchedDiv.name,
+          }));
+          getMajorSections(matchedDiv.id).then(setMajorSections);
+        }
+      }
+    });
+  }, [dbUser]);
+
+  const handleDivision = e => {
+    const d = divisions.find(x => x.id === e.target.value);
+    setForm(f => ({ ...f, divisionId: e.target.value, divisionName: d?.name || '', majorSectionId: '', majorSectionName: '', sectionId: '', sectionName: '' }));
+    setMajorSections([]); setSections([]);
+    if (errors.divisionId) {
+      setErrors(err => { const c = { ...err }; delete c.divisionId; return c; });
+    }
+    if (e.target.value) getMajorSections(e.target.value).then(setMajorSections);
+  };
+
+  const handleMajorSection = e => {
+    const m = majorSections.find(x => x.id === e.target.value);
+    setForm(f => ({ ...f, majorSectionId: e.target.value, majorSectionName: m?.name || '', sectionId: '', sectionName: '' }));
+    setSections([]);
+    if (errors.majorSectionId) {
+      setErrors(err => { const c = { ...err }; delete c.majorSectionId; return c; });
+    }
+    if (e.target.value) getSections(e.target.value).then(setSections);
+  };
+
+  const handleSection = e => {
+    const s = sections.find(x => x.id === e.target.value);
+    setForm(f => ({ ...f, sectionId: e.target.value, sectionName: s?.name || '' }));
+    if (errors.sectionId) {
+      setErrors(err => { const c = { ...err }; delete c.sectionId; return c; });
+    }
+  };
 
   const handleChange = (field, val) => {
     setForm(f => ({ ...f, [field]: val }));
@@ -348,21 +480,42 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
     });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm(f => ({ ...f, attachment: reader.result }));
+        if (errors.attachment) {
+          setErrors(err => {
+            const c = { ...err };
+            delete c.attachment;
+            return c;
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Validate form
   const validate = () => {
     const e = {};
     if (!form.testDate) e.testDate = 'Date of Testing is required';
-    if (!form.fromStation) e.fromStation = 'From Station is required';
-    if (!form.toStation) e.toStation = 'To Station is required';
-    if (form.fromStation && form.toStation && form.fromStation === form.toStation) {
-      e.toStation = 'From Station and To Station cannot be the same';
-    }
+    if (!form.divisionId) e.divisionId = 'Division is required';
+    if (!form.majorSectionId) e.majorSectionId = 'Major Section is required';
+    if (!form.sectionId) e.sectionId = 'Section is required';
     if (!form.fibreLength || form.fibreLength.trim() === '') {
       e.fibreLength = 'Fibre Length is required';
     } else if (isNaN(Number(form.fibreLength))) {
       e.fibreLength = 'Must be a valid numeric value';
     }
     if (!form.wavelength) e.wavelength = 'Wavelength is required';
+    if (!form.attachment) e.attachment = 'Image/File upload is required';
 
     return e;
   };
@@ -380,7 +533,7 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
     try {
       const payload = {
         ...form,
-        division: userDivision,
+        division: form.divisionName,
         eventHeaders,
       };
       await createOtdrReport(payload);
@@ -392,12 +545,21 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
       setForm({
         testDate: todayDate,
         division: userDivision,
+        divisionId: '',
+        divisionName: '',
+        majorSectionId: '',
+        majorSectionName: '',
+        sectionId: '',
+        sectionName: '',
         fromStation: '',
         toStation: '',
         fibreLength: '',
         wavelength: '1310 nm',
         fibreReadings: createEmptyReadings(),
+        attachment: '',
       });
+      setMajorSections([]);
+      setSections([]);
       setEventHeaders([...INITIAL_EVENT_HEADERS]);
       setErrors({});
     } catch (err) {
@@ -409,15 +571,39 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
   };
 
   const handleReset = () => {
-    setForm({
+    const defaultForm = {
       testDate: todayDate,
       division: userDivision,
+      divisionId: '',
+      divisionName: '',
+      majorSectionId: '',
+      majorSectionName: '',
+      sectionId: '',
+      sectionName: '',
       fromStation: '',
       toStation: '',
       fibreLength: '',
       wavelength: '1310 nm',
       fibreReadings: createEmptyReadings(),
-    });
+      attachment: '',
+    };
+    
+    const userDivName = dbUser?.division;
+    if (userDivName && divisions.length > 0) {
+      const matchedDiv = divisions.find(
+        d => d.name.toLowerCase() === userDivName.toLowerCase()
+      );
+      if (matchedDiv) {
+        defaultForm.divisionId = matchedDiv.id;
+        defaultForm.divisionName = matchedDiv.name;
+        getMajorSections(matchedDiv.id).then(setMajorSections);
+      }
+    } else {
+      setMajorSections([]);
+    }
+
+    setForm(defaultForm);
+    setSections([]);
     setEventHeaders([...INITIAL_EVENT_HEADERS]);
     setErrors({});
   };
@@ -474,56 +660,38 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
               </svg>
             }
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${dbUser?.division ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-5`}>
               
-              {/* 1. From Station */}
+              {/* 1. Division */}
+              {!dbUser?.division && (
+                <div>
+                  <FormLabel required>Division</FormLabel>
+                  <Select value={form.divisionId} onChange={handleDivision} error={errors.divisionId}>
+                    <option value="">Select Division</option>
+                    {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </Select>
+                  <FieldError message={errors.divisionId} />
+                </div>
+              )}
+
+              {/* 2. Major Section */}
               <div>
-                <FormLabel required>From Station</FormLabel>
-                <Select
-                  value={form.fromStation}
-                  onChange={e => handleChange('fromStation', e.target.value)}
-                  error={errors.fromStation}
-                >
-                  <option value="">Select From Station</option>
-                  {stations.map(st => (
-                    <option key={st.code} value={st.code}>
-                      {st.name}
-                    </option>
-                  ))}
+                <FormLabel required>Major Section</FormLabel>
+                <Select value={form.majorSectionId} onChange={handleMajorSection} disabled={!form.divisionId} error={errors.majorSectionId}>
+                  <option value="">Select Major Section</option>
+                  {majorSections.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </Select>
-                <FieldError message={errors.fromStation} />
+                <FieldError message={errors.majorSectionId} />
               </div>
 
-              {/* 2. To Station */}
+              {/* 3. Section */}
               <div>
-                <FormLabel required>To Station</FormLabel>
-                <Select
-                  value={form.toStation}
-                  onChange={e => handleChange('toStation', e.target.value)}
-                  error={errors.toStation}
-                >
-                  <option value="">Select To Station</option>
-                  {stations
-                    .filter(st => st.code !== form.fromStation)
-                    .map(st => (
-                      <option key={st.code} value={st.code}>
-                        {st.name}
-                      </option>
-                    ))}
+                <FormLabel required>Section</FormLabel>
+                <Select value={form.sectionId} onChange={handleSection} disabled={!form.majorSectionId} error={errors.sectionId}>
+                  <option value="">Select Section</option>
+                  {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
-                <FieldError message={errors.toStation} />
-              </div>
-
-              {/* 3. Division (Auto-filled from Logged-in User Profile) */}
-              <div>
-                <FormLabel required>Division</FormLabel>
-                <Input
-                  type="text"
-                  value={form.division || userDivision}
-                  disabled
-                  readOnly
-                  className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed border-slate-300"
-                />
+                <FieldError message={errors.sectionId} />
               </div>
 
               {/* 4. Date of Testing */}
@@ -757,60 +925,30 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
             </div>
           </SectionPanel>
 
-          {/* Section 3 — Submitted By */}
-          <SectionPanel
-            number="03"
-            title="Submitted By"
-            icon={
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            }
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <FormLabel>Name</FormLabel>
-                <Input
-                  type="text"
-                  value={dbUser?.name || 'Logged-in User'}
-                  readOnly
-                  disabled
-                  className="bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
-                />
-              </div>
-              <div>
-                <FormLabel>Mobile Number</FormLabel>
-                <Input
-                  type="text"
-                  value={dbUser?.phoneNumber || dbUser?.phone || dbUser?.mobile || 'N/A'}
-                  readOnly
-                  disabled
-                  className="bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
-                />
-              </div>
-              <div>
-                <FormLabel>User Name / Signature</FormLabel>
-                <Input
-                  type="text"
-                  value={dbUser?.name || dbUser?.email || 'Logged-in User'}
-                  readOnly
-                  disabled
-                  className="bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
-                />
-              </div>
-              <div>
-                <FormLabel>Role / Designation</FormLabel>
-                <Input
-                  type="text"
-                  value={dbUser?.role ? dbUser.role.replace('_', ' ').toUpperCase() : 'USER'}
-                  readOnly
-                  disabled
-                  className="bg-slate-100 text-slate-700 cursor-not-allowed font-semibold"
-                />
-              </div>
+          {/* Small Upload Button */}
+          <div className="flex flex-col items-center gap-1.5 pt-4 pb-2">
+            <div className="flex items-center gap-3">
+              <label className={`group flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all border-2 border-dashed ${form.attachment ? 'bg-green-50 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-gold-400 hover:text-navy-900 shadow-sm'}`}>
+                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={handleFileChange} />
+                <svg className={`w-4 h-4 ${form.attachment ? 'text-green-500' : 'text-slate-400 group-hover:text-gold-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span className="text-[13px] font-bold">{form.attachment ? 'Evidence Attached' : 'Attach Photo/Report'}</span>
+                {form.attachment && <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>}
+              </label>
+              
+              {form.attachment && form.attachment.startsWith('data:image/') && (
+                <div className="relative group cursor-pointer" onClick={() => window.open(form.attachment, '_blank')}>
+                  <img src={form.attachment} alt="mini-preview" className="h-9 w-9 object-cover rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-200" />
+                  <div className="absolute inset-0 bg-navy-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </div>
+                </div>
+              )}
             </div>
-          </SectionPanel>
+            {!form.attachment && !errors.attachment && (
+              <span className="text-[9px] font-bold text-gold-600 uppercase tracking-widest bg-gold-50 px-2 py-0.5 rounded-full">Mandatory for submission</span>
+            )}
+            <FieldError message={errors.attachment} />
+          </div>
 
         </div>
 
@@ -826,8 +964,11 @@ export default function OtdrReportForm({ setActivePage, showToast }) {
           
           <button
             type="submit"
-            disabled={submitting}
-            className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all font-semibold text-sm bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-sm hover:shadow-md hover:-translate-y-px active:scale-95 disabled:opacity-50"
+            disabled={submitting || !form.attachment}
+            className={`flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all font-semibold text-sm
+              ${(!form.attachment || submitting) 
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                : 'bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-sm hover:shadow-md hover:-translate-y-px active:scale-95'}`}
           >
             {submitting ? (
               <>
