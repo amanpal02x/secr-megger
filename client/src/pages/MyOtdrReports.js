@@ -33,6 +33,42 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
     }
   };
 
+  // Filter and Sort Logic
+  const filteredAndSortedReports = useMemo(() => {
+    return reports
+      .filter(r => {
+        // Search term filter
+        if (search.trim()) {
+          const term = search.toLowerCase().trim();
+          const agencyMatch = r.agencyName && r.agencyName.toLowerCase().includes(term);
+          const fromMatch = r.fromStation && r.fromStation.toLowerCase().includes(term);
+          const toMatch = r.toStation && r.toStation.toLowerCase().includes(term);
+          const dateMatch = r.testDate && r.testDate.includes(term);
+          if (!agencyMatch && !fromMatch && !toMatch && !dateMatch) {
+            return false;
+          }
+        }
+        // Wavelength filter
+        if (wavelengthFilter !== 'ALL') {
+          if (r.wavelength !== wavelengthFilter) return false;
+        }
+        // Condition card filter
+        if (activeFilter && activeFilter !== 'total') {
+          if (getOtdrReportCondition(r) !== activeFilter) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.testDate).getTime();
+        const timeB = new Date(b.createdAt || b.testDate).getTime();
+        return sortBy === 'newest' ? timeB - timeA : timeA - timeB;
+      });
+  }, [reports, search, wavelengthFilter, sortBy, activeFilter]);
+
+  const displayedReports = useMemo(() => {
+    return filteredAndSortedReports.slice(0, visibleCount);
+  }, [filteredAndSortedReports, visibleCount]);
+
   useEffect(() => {
     setVisibleCount(25);
   }, [search, wavelengthFilter, sortBy, activeFilter]);
@@ -88,42 +124,6 @@ export default function MyOtdrReports({ setActivePage, showToast }) {
       setLoading(false);
     }
   };
-
-  // Filter and Sort Logic
-  const filteredAndSortedReports = useMemo(() => {
-    return reports
-      .filter(r => {
-        // Search term filter
-        if (search.trim()) {
-          const term = search.toLowerCase().trim();
-          const agencyMatch = r.agencyName && r.agencyName.toLowerCase().includes(term);
-          const fromMatch = r.fromStation && r.fromStation.toLowerCase().includes(term);
-          const toMatch = r.toStation && r.toStation.toLowerCase().includes(term);
-          const dateMatch = r.testDate && r.testDate.includes(term);
-          if (!agencyMatch && !fromMatch && !toMatch && !dateMatch) {
-            return false;
-          }
-        }
-        // Wavelength filter
-        if (wavelengthFilter !== 'ALL') {
-          if (r.wavelength !== wavelengthFilter) return false;
-        }
-        // Condition card filter
-        if (activeFilter && activeFilter !== 'total') {
-          if (getOtdrReportCondition(r) !== activeFilter) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const timeA = new Date(a.createdAt || a.testDate).getTime();
-        const timeB = new Date(b.createdAt || b.testDate).getTime();
-        return sortBy === 'newest' ? timeB - timeA : timeA - timeB;
-      });
-  }, [reports, search, wavelengthFilter, sortBy, activeFilter]);
-
-  const displayedReports = useMemo(() => {
-    return filteredAndSortedReports.slice(0, visibleCount);
-  }, [filteredAndSortedReports, visibleCount]);
 
   return (
     <div className="flex-1 bg-slate-100 min-h-screen flex flex-col">
